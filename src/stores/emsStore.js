@@ -14,8 +14,8 @@ export const useEmsStore = defineStore('ems', () => {
   // 模擬數據跳動與電力平衡邏輯
   const fetchEmsData = () => {
     // 1. 負載與太陽能隨機微幅震盪
-    loadPower.value = 70.0 + (Math.random() * 2 - 1)
-    pvPower.value = 52.0 + (Math.random() * 3 - 1.5)
+    loadPower.value = 70.0 + (Math.random() * 5- 1)
+    pvPower.value = 52.0 + (Math.random() * 30 - 1.5)
 
     const load = loadPower.value
     const pv = pvPower.value
