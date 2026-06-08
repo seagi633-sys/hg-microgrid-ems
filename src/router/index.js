@@ -10,7 +10,12 @@ const routes = [
   },
   { path: '/history', 
     name: 'History', 
-    component: () => import('../views/History.vue') }
+    component: () => import('../views/History.vue') },
+  {
+    path: '/api-test',
+    name: 'ApiTest',
+    component: () => import('../views/ApiTest.vue')
+  }
 ]
 
 const router = createRouter({

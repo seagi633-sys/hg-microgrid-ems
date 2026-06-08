@@ -14,15 +14,6 @@
       </el-radio-group>
     </el-card>
 
-    <el-card class="sld-card">
-      <template #header>
-        <div class="card-header">
-          <span>📊 微電網系統即時單線圖 (動態 ATS 切換架構)</span>
-        </div>
-      </template>
-      <SingleLineDiagram />
-    </el-card>
-
     <el-row :gutter="16" class="data-cards-row">
       <el-col :xs="24" :sm="12" :md="8" :lg="4">
         <el-card shadow="hover" class="data-card grid-card">
@@ -103,6 +94,24 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <el-card class="sld-card">
+      <template #header>
+        <div class="card-header">
+          <span>📊 微電網系統即時單線圖 (動態 ATS 切換架構)</span>
+        </div>
+      </template>
+      <SingleLineDiagram />
+    </el-card>
+
+    <el-card class="chart-card">
+      <template #header>
+        <div class="card-header">
+          <span>📈 各設備即時功率曲線（每 2 秒更新，保留最近 2 分鐘）</span>
+        </div>
+      </template>
+      <RealTimePowerChart />
+    </el-card>
   </div>
 </template>
 
@@ -110,15 +119,15 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useEmsStore } from '../stores/emsStore'
 import SingleLineDiagram from '../components/SingleLineDiagram.vue'
+import RealTimePowerChart from '../components/RealTimePowerChart.vue'
 
 const emsStore = useEmsStore()
 let timer = null
 
 onMounted(() => {
+  emsStore.fetchEmsData()
   timer = setInterval(() => {
-    if (typeof emsStore.fetchEmsData === 'function') {
-      emsStore.fetchEmsData()
-    }
+    emsStore.fetchEmsData()
   }, 2000)
 })
 
@@ -139,7 +148,8 @@ onUnmounted(() => {
 .card-header { font-weight: 600; font-size: 15px; color: #303133; }
 .mode-radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .sld-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
-.data-cards-row { margin-top: 4px; }
+.chart-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
+.data-cards-row { margin-bottom: 4px; }
 .data-card { height: 100%; border-radius: 6px; transition: all 0.3s; }
 .card-body { display: flex; flex-direction: column; gap: 12px; }
 .card-label { font-size: 12px; color: #909399; font-weight: 500; }

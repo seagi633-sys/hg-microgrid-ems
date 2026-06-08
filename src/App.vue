@@ -18,6 +18,11 @@
     <el-icon><TrendCharts /></el-icon>
     <span>歷史曲線查詢</span>
   </el-menu-item>
+
+  <el-menu-item index="/api-test">
+    <el-icon><Connection /></el-icon>
+    <span>API 測試</span>
+  </el-menu-item>
 </el-menu>
     </el-aside>
 
@@ -30,5 +35,5 @@
 </template>
 
 <script setup>
-import { Odometer, DataAnalysis } from '@element-plus/icons-vue'
+import { Monitor, TrendCharts, Connection } from '@element-plus/icons-vue'
 </script>
