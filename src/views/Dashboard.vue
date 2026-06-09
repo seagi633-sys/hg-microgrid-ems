@@ -3,7 +3,7 @@
     <el-card class="mode-selector-card">
       <template #header>
         <div class="card-header">
-          <span class="header-title">⚡臺南市佳里國中防災微電網運轉情境模擬控制面板</span>
+          <span class="header-title">⚡臺南市佳里國中防災微電網運轉情境模擬控制面板⚡</span>
         </div>
       </template>
       <el-radio-group v-model="emsStore.currentMode" size="large" class="mode-radio-group">
@@ -146,8 +146,8 @@ onUnmounted(() => {
   background-color: #f5f7fa;
   min-height: calc(100vh - 60px);
 }
-.card-header { font-weight: 600; font-size: 15px; color: #303133; }
-.mode-radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-header { font-weight: 700; font-size: 20px; color: #303133; text-align: center;}
+.mode-radio-group { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;}
 .sld-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
 .chart-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
 .data-cards-row { margin-bottom: 4px; }
