@@ -3,14 +3,15 @@
     <el-card class="mode-selector-card">
       <template #header>
         <div class="card-header">
-          <span class="header-title">⚡ 防災微電網運轉情境模擬控制面板</span>
+          <span class="header-title">⚡臺南市佳里國中防災微電網運轉情境模擬控制面板</span>
         </div>
       </template>
       <el-radio-group v-model="emsStore.currentMode" size="large" class="mode-radio-group">
-        <el-radio-button :value="1">情境一：市電正常（併網運轉）</el-radio-button>
+        <el-radio-button :value="1">情境一：市電正常（光電併網運轉）</el-radio-button>
         <el-radio-button :value="2">情境二：市電異常（儲能孤島供電）</el-radio-button>
-        <el-radio-button :value="3">情境三：電力不足（儲能 + 柴發）</el-radio-button>
-        <el-radio-button :value="4">情境四：儲能異常（純柴發離網）</el-radio-button>
+        <el-radio-button :value="3">情境三：市電異常（儲能 + 柴油發電機）</el-radio-button>
+        <el-radio-button :value="4">情境四：市電與儲能異常（光電+柴油發電機）</el-radio-button>
+        <el-radio-button :value="5">情境五：夜尖峰時段（儲能供電）</el-radio-button>
       </el-radio-group>
     </el-card>
 
@@ -98,7 +99,7 @@
     <el-card class="sld-card">
       <template #header>
         <div class="card-header">
-          <span>📊 微電網系統即時單線圖 (動態 ATS 切換架構)</span>
+          <span>📊 微電網系統即時單線圖</span>
         </div>
       </template>
       <SingleLineDiagram />

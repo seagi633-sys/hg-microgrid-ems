@@ -3,7 +3,7 @@ import { ref } from 'vue'
 
 export const useEmsStore = defineStore('ems', () => {
   // 狀態變數定義 (統一命名，與 Dashboard 和單線圖完全對齊)
-  const currentMode = ref(1) // 1: 併網, 2: 孤島, 3: 儲能+柴發, 4: 純柴發
+  const currentMode = ref(1) // 1: 併網, 2: 孤島, 3: 儲能+柴發, 4: 純柴發 5: 夜尖峰時段（儲能供電）
   const pvPower = ref(52.5)
   const essPower = ref(0)
   const genPower = ref(0)    // 柴油發電機
@@ -55,7 +55,7 @@ export const useEmsStore = defineStore('ems', () => {
       const totalGen = pv + genPower.value
       essPower.value = load - totalGen 
 
-      if (essPower.value < 0) soc.value += 0.2
+      if (essPower.value < 0) soc.value += 0.1
       if (soc.value >= 70) currentMode.value = 2 // 充飽後回到情境二
     }
     else if (currentMode.value === 4) {
@@ -63,6 +63,14 @@ export const useEmsStore = defineStore('ems', () => {
       gridPower.value = 0
       essPower.value = 0
       genPower.value = Math.max(0, load - pv)
+    }
+    else if (currentMode.value === 5) {
+      // 情境五：夜尖峰時段（儲能供電）
+      pvPower.value = 0
+      essPower.value = 600
+      genPower.value = 0
+      gridPower.value = essPower.value-load
+      if(essPower.value >0) soc.value -= 0.5
     }
 
     // 確保 SOC 邊界防護

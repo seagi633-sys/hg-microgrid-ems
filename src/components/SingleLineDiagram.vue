@@ -7,7 +7,9 @@
       aria-label="微電網系統單線圖"
     >
       <rect x="90" y="188" width="640" height="10" rx="2" class="bus-bar" />
-
+      <text x="410" y="30" class="mode-label" text-anchor="middle">
+        {{ currentModeLabel }}
+      </text>
       <rect x="368" y="52" width="84" height="44" rx="4" class="device-box grid-box" />
       <text x="410" y="72" class="device-title">市電</text>
       <text x="410" y="88" class="device-sub">台電饋線</text>
@@ -49,9 +51,13 @@
       <line x1="210" y1="288" x2="210" y2="318" :class="essLineClass" />
       <rect x="168" y="318" width="84" height="52" rx="4" class="device-box ess-box" />
       <text x="210" y="340" class="device-title">儲能系統</text>
-      <text x="210" y="356" class="device-sub">600kW / 1316kWh</text>
+      <text x="210" y="352" class="device-sub"> 600kW </text>
+      <text x="210" y="366" class="device-sub"> 1316kWh </text>
       <text x="210" y="388" class="soc-text">SOC {{ Number(emsStore.soc || 0).toFixed(0) }}%</text>
       <text x="228" y="220" class="power-label">{{ formatPower(emsStore.essPower, true) }}</text>
+      <text x="260" y="350" class="soc-status" :class="socStatus.class">
+      {{ socStatus.label }}
+       </text>
 
       <line x1="610" y1="188" x2="610" y2="248" :class="gensetLineClass" />
       <g>
@@ -103,9 +109,38 @@ import { useEmsStore } from '../stores/emsStore'
 
 const emsStore = useEmsStore()
 
-const gridBreakerClosed = computed(() => Number(emsStore.currentMode || 1) === 1)
-const essBreakerClosed = computed(() => Number(emsStore.currentMode || 1) !== 4)
-const gensetBreakerClosed = computed(() => Number(emsStore.currentMode || 1) >= 3)
+const modeLabel = {
+  1: '市電正常（光電併網運轉）',
+  2: '市電異常（光電 + 儲能孤島供電）',
+  3: '市電異常（光電 + 儲能 + 柴油發電機）',
+  4: '市電與儲能異常（光電 + 柴油發電機）',
+  5: '夜尖峰時段（儲能供電）',
+}
+const currentModeLabel = computed(() => {
+  const mode = Number(emsStore.currentMode || 1)
+  return modeLabel[mode]
+})
+
+const socStatus = computed(() => {
+  const soc = Number(emsStore.soc || 0)
+  if (soc < 30) return {label: '低電量警告', class: 'soc-status-danger'}
+  if (soc > 90) return {label: '高電量警告', class: 'soc-status-warning'}
+  return {label: '電量正常', class: 'soc-status-normal'}
+})
+
+  const gridBreakerClosed = computed(() =>  { 
+  const mode= Number(emsStore.currentMode || 1) 
+  return mode === 1 || mode === 5 
+  })
+const essBreakerClosed = computed(() => {
+  const mode = Number(emsStore.currentMode || 1)
+  return mode !== 4
+})
+const gensetBreakerClosed = computed(() => {
+  const mode = Number(emsStore.currentMode || 1)
+  return mode === 3 || mode === 4
+})
+
 
 const isLineActive = (power) => {
   const num = Number(power || 0)
@@ -114,7 +149,12 @@ const isLineActive = (power) => {
 
 const pvLineClass = computed(() => isLineActive(emsStore.pvPower) ? 'line-active-flow-down' : 'line-idle')
 const loadLineClass = computed(() => isLineActive(emsStore.loadPower) ? 'line-active-flow-down' : 'line-idle')
-const gridLineClass = computed(() => gridBreakerClosed.value && isLineActive(emsStore.gridPower) ? 'line-active-flow-down' : 'line-idle')
+const gridLineClass = computed(() => {
+  if (!gridBreakerClosed.value || !isLineActive(emsStore.gridPower)) return 'line-idle'
+  const mode = Number(emsStore.currentMode || 1)
+  // 情境五：儲能逆送，功率由母線往上回送市電
+  return mode === 5 ? 'line-active-flow-up' : 'line-active-flow-down'
+})
 const gensetLineClass = computed(() => isLineActive(emsStore.genPower) ? 'line-active-flow-up' : 'line-idle')
 
 const essLineClass = computed(() => {
@@ -159,6 +199,26 @@ const formatPower = (value, signed = false) => {
 .device-title { fill: #303133; font-size: 13px; font-weight: 600; text-anchor: middle; }
 .device-sub { fill: #909399; font-size: 11px; text-anchor: middle; }
 .soc-text { fill: #67c23a; font-size: 12px; font-weight: 600; text-anchor: middle; }
+.soc-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: start;   /* 從 x=280 往右寫 */
+}
+.soc-status-normal {
+  fill: #67c23a;   /* 綠：正常 */
+}
+.soc-status-warning {
+  fill: #e6a23c;   /* 橙：高電量 */
+  animation: soc-blink 1s ease-in-out infinite;
+}
+.soc-status-danger {
+  fill: #f56c6c;   /* 紅：低電量 */
+  animation: soc-blink 1s ease-in-out infinite;
+}
+  @keyframes soc-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
 
 .symbol-box { fill: #fff; stroke: #e6a23c; stroke-width: 1.5; }
 .symbol-text { fill: #e6a23c; font-size: 11px; font-weight: 600; text-anchor: middle; }
@@ -173,4 +233,6 @@ const formatPower = (value, signed = false) => {
 
 .legend-title { fill: #303133; font-size: 12px; font-weight: 600; }
 .legend-item { fill: #606266; font-size: 11px; }
+
+.mode-banner { fill: #303133; font-size: 14px; font-weight:700; text-anchor: middle; }
 </style>
