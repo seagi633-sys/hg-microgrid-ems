@@ -30,7 +30,7 @@
 
       <line x1="130" y1="108" x2="130" y2="188" :class="pvLineClass" />
       <rect x="88" y="52" width="84" height="44" rx="4" class="device-box pv-box" />
-      <text x="130" y="72" class="device-title">太陽光電</text>
+      <text x="130" y="72" class="device-title">既設太陽光電</text>
       <text x="130" y="88" class="device-sub">132 kWp</text>
       <rect x="108" y="148" width="44" height="28" rx="3" class="symbol-box" />
       <text x="130" y="167" class="symbol-text">INV</text>
@@ -80,24 +80,27 @@
       <line x1="690" y1="188" x2="690" y2="108" :class="loadLineClass" />
       <rect x="648" y="52" width="84" height="44" rx="4" class="device-box load-box" />
       <text x="690" y="72" class="device-title">夢翔館</text>
-      <text x="690" y="88" class="device-sub">緊急救災負載</text>
+      <text x="690" y="88" class="device-sub">緊急避難所</text>
       <text x="708" y="130" class="power-label">{{ formatPower(emsStore.loadPower) }}</text>
 
       <circle cx="410" cy="193" r="14" class="pcc-node" />
       <text x="410" y="230" class="pcc-label">AC 併網點 (PCC)</text>
 
-      <g transform="translate(24, 395)">
-        <text x="0" y="5" class="legend-title">圖例說明</text>
-        <line x1="0" y1="20" x2="28" y2="20" class="line-active-flow-down" />
-        <text x="36" y="24" class="legend-item">功率向下流通</text>
-        <line x1="0" y1="40" x2="28" y2="40" class="line-active-flow-up" />
-        <text x="36" y="44" class="legend-item">功率向上供應</text>
-        <line x1="160" y1="20" x2="175" y2="20" class="line-breaker-closed" />
-        <text x="185" y="24" class="legend-item">ATS 閉合 (導通)</text>
-        <line x1="160" y1="40" x2="166" y2="40" class="line-base" />
-        <line x1="166" y1="40" x2="176" y2="30" class="breaker-open-arm" />
-        <line x1="176" y1="40" x2="180" y2="40" class="line-base" />
-        <text x="185" y="44" class="legend-item">ATS 斷開 (隔離)</text>
+      <g transform="translate(680, 295)">
+        <!-- 標題 -->
+        <text x="0" y="12" class="legend-title">圖例說明</text>
+        <!-- 第 1 行：功率向下 -->
+                <!-- 第 2 行：功率向上 -->
+        <line x1="0" y1="48" x2="28" y2="48" class="line-active-flow-up" />
+        <text x="36" y="52" class="legend-item">功率流向</text>
+        <!-- 第 3 行：ATS 閉合 -->
+        <line x1="0" y1="68" x2="15" y2="68" class="line-breaker-closed" />
+        <text x="36" y="72" class="legend-item">ATS 閉合 (導通)</text>
+        <!-- 第 4 行：ATS 斷開 -->
+        <line x1="0" y1="88" x2="6" y2="88" class="line-base" />
+        <line x1="6" y1="88" x2="16" y2="78" class="breaker-open-arm" />
+        <line x1="16" y1="88" x2="20" y2="88" class="line-base" />
+        <text x="36" y="92" class="legend-item">ATS 斷開 (隔離)</text>
       </g>
     </svg>
   </div>
