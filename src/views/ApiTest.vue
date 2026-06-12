@@ -3,7 +3,7 @@
     <el-card shadow="sm" class="api-card">
       <template #header>
         <div class="card-header">
-          <span class="header-title">GET — 時間資料（每 2 秒更新）</span>
+          <span class="header-title">GET — 時間資料（每2秒更新一次）</span>
         </div>
       </template>
       <div class="api-url">http://192.168.1.148:5000/time</div>

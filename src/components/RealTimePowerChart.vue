@@ -12,6 +12,7 @@ const MAX_POINTS = 60
 const chartRef = ref(null)
 const emsStore = useEmsStore()
 let chart = null
+const loadLegendName = '關鍵負載'
 
 const timeLabels = []
 const gridData = []
@@ -54,7 +55,7 @@ const buildOption = () => ({
     valueFormatter: (value) => `${value} kW`
   },
   legend: {
-    data: ['市電饋線', '太陽光電', '儲能系統', '柴油發電機', '救災負載'],
+    data: ['市電', '太陽光電', '儲能系統', '柴油發電機', loadLegendName],
     top: 0
   },
   grid: { left: 50, right: 24, top: 48, bottom: 32 },
@@ -72,7 +73,7 @@ const buildOption = () => ({
   },
   series: [
     {
-      name: '市電饋線',
+      name: '市電',
       type: 'line',
       data: gridData,
       color: '#409eff',
@@ -104,7 +105,7 @@ const buildOption = () => ({
       showSymbol: false
     },
     {
-      name: '救災負載',
+      name: loadLegendName,
       type: 'line',
       data: loadData,
       color: '#f56c6c',

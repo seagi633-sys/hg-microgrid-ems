@@ -26,12 +26,12 @@
         <text x="430" y="132" class="breaker-label">ATS1</text>
       </g>
       <line x1="410" y1="148" x2="410" y2="188" :class="gridLineClass" />
-      <text x="435" y="110" class="power-label">市電 {{ formatPower(emsStore.gridPower) }}</text>
+      <text x="430" y="165" class="power-label">市電 {{ formatPower(emsStore.gridPower) }}</text>
 
       <line x1="130" y1="108" x2="130" y2="188" :class="pvLineClass" />
       <rect x="88" y="52" width="84" height="44" rx="4" class="device-box pv-box" />
       <text x="130" y="72" class="device-title">既設太陽光電</text>
-      <text x="130" y="88" class="device-sub">132 kWp</text>
+      <text x="130" y="88" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.pvCapacityKw)} kWp` }}</text>
       <rect x="108" y="148" width="44" height="28" rx="3" class="symbol-box" />
       <text x="130" y="167" class="symbol-text">INV</text>
       <text x="148" y="130" class="power-label">{{ formatPower(emsStore.pvPower) }}</text>
@@ -51,8 +51,8 @@
       <line x1="210" y1="288" x2="210" y2="318" :class="essLineClass" />
       <rect x="168" y="318" width="84" height="52" rx="4" class="device-box ess-box" />
       <text x="210" y="340" class="device-title">儲能系統</text>
-      <text x="210" y="352" class="device-sub"> 600kW </text>
-      <text x="210" y="366" class="device-sub"> 1316kWh </text>
+      <text x="210" y="352" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.essPowerKw)} kW` }}</text>
+      <text x="210" y="366" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.essEnergyKwh)} kWh` }}</text>
       <text x="210" y="388" class="soc-text">SOC {{ Number(emsStore.soc || 0).toFixed(0) }}%</text>
       <text x="228" y="220" class="power-label">{{ formatPower(emsStore.essPower, true) }}</text>
       <text x="260" y="350" class="soc-status" :class="socStatus.class">
@@ -74,23 +74,20 @@
       <line x1="610" y1="288" x2="610" y2="318" :class="gensetLineClass" />
       <rect x="568" y="318" width="84" height="52" rx="4" class="device-box genset-box" />
       <text x="610" y="340" class="device-title">柴油發電機</text>
-      <text x="610" y="356" class="device-sub">200 kW</text>
+      <text x="610" y="356" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.genCapacityKw)} kW` }}</text>
       <text x="628" y="220" class="power-label">{{ formatPower(emsStore.genPower) }}</text>
 
       <line x1="690" y1="188" x2="690" y2="108" :class="loadLineClass" />
       <rect x="648" y="52" width="84" height="44" rx="4" class="device-box load-box" />
-      <text x="690" y="72" class="device-title">夢翔館</text>
-      <text x="690" y="88" class="device-sub">緊急避難所</text>
+      <text x="690" y="72" class="device-title">{{ emsStore.selectedSite.loadDeviceTitle }}</text>
+      <text x="690" y="88" class="device-sub">{{ emsStore.selectedSite.loadDeviceSub }}</text>
       <text x="708" y="130" class="power-label">{{ formatPower(emsStore.loadPower) }}</text>
 
       <circle cx="410" cy="193" r="14" class="pcc-node" />
       <text x="410" y="230" class="pcc-label">AC 併網點 (PCC)</text>
 
-      <g transform="translate(680, 295)">
-        <!-- 標題 -->
-        <text x="0" y="12" class="legend-title">圖例說明</text>
-        <!-- 第 1 行：功率向下 -->
-                <!-- 第 2 行：功率向上 -->
+      <g transform="translate(700, 250)">
+
         <line x1="0" y1="48" x2="28" y2="48" class="line-active-flow-up" />
         <text x="36" y="52" class="legend-item">功率流向</text>
         <!-- 第 3 行：ATS 閉合 -->
@@ -170,6 +167,12 @@ const formatPower = (value, signed = false) => {
   const num = Number(value || 0)
   if (signed && num > 0) return `+${num.toFixed(1)} kW`
   return `${num.toFixed(1)} kW`
+}
+
+const formatCapacity = (value) => {
+  const num = Number(value || 0)
+  if (Number.isInteger(num)) return num.toString()
+  return num.toFixed(2).replace(/\.?0+$/, '')
 }
 </script>
 

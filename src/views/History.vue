@@ -1,5 +1,7 @@
 <template>
   <div class="history-container">
+    <SiteHeader />
+
     <el-card shadow="sm" class="chart-card">
       <template #header>
         <div class="card-header">
@@ -14,6 +16,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
+import SiteHeader from '../components/SiteHeader.vue'
 
 const chartRef = ref(null)
 let myChart = null
@@ -107,7 +110,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.history-container { padding: 20px; background-color: #f5f7fa; min-height: 80vh; }
+.history-container { padding: 20px; background-color: #f5f7fa; min-height: 80vh; display: flex; flex-direction: column; gap: 16px; }
 .chart-wrapper { width: 100%; height: 500px; }
 .header-title { font-weight: 600; font-size: 16px; }
 </style>
