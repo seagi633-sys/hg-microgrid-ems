@@ -57,7 +57,7 @@
             </div>
             <div class="soc-section">
               <div class="soc-header">
-                <span class="soc-label">電池電量 (SoC)</span>
+                <span class="soc-label">電池電量 (SOC)</span>
                 <span class="soc-num">{{ Number(emsStore.soc || 0).toFixed(0) }}%</span>
               </div>
               <el-progress 
@@ -88,6 +88,7 @@
         <el-card shadow="hover" class="data-card load-card">
           <div class="card-body">
             <div class="card-label">{{ emsStore.selectedSite.loadLabel }}</div>
+            <div class="metric-label">預估負載 {{ emsStore.selectedSite.loadBaseKw }} kW</div>
             <div class="card-value">{{ Number(emsStore.loadPower || 0).toFixed(1) }} kW</div>
             <div class="card-status">
               <el-tag type="primary" effect="dark">緊急負載不斷電監控</el-tag>
@@ -105,15 +106,6 @@
       </template>
       <SingleLineDiagram />
     </el-card>
-
-    <el-card class="chart-card">
-      <template #header>
-        <div class="card-header">
-          <span>📈 各設備即時功率曲線（每 2 秒更新）</span>
-        </div>
-      </template>
-      <RealTimePowerChart />
-    </el-card>
   </div>
 </template>
 
@@ -122,7 +114,6 @@ import { onMounted, onUnmounted } from 'vue'
 import { useEmsStore } from '../stores/emsStore'
 import SiteHeader from '../components/SiteHeader.vue'
 import SingleLineDiagram from '../components/SingleLineDiagram.vue'
-import RealTimePowerChart from '../components/RealTimePowerChart.vue'
 
 const emsStore = useEmsStore()
 let timer = null
@@ -198,7 +189,6 @@ onUnmounted(() => {
 }
 
 .sld-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
-.chart-card { box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
 .data-cards-row { margin-bottom: 4px; }
 .data-card { height: 100%; border-radius: 6px; transition: all 0.3s; }
 .card-body { display: flex; flex-direction: column; gap: 12px; }

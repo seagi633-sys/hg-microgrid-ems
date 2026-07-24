@@ -5,7 +5,7 @@ export const useEmsStore = defineStore('ems', () => {
   const siteOptions = [
     {
       id: 'jiali-junior-high',
-      name: '臺南市佳里國中小型防災微電網',
+      name: '臺南市佳里國中後港校區',
       location: '臺南市佳里區',
       pvCapacityKw: 132,
       essPowerKw: 600,
@@ -18,7 +18,7 @@ export const useEmsStore = defineStore('ems', () => {
     },
     {
       id: 'ruifeng-elementary',
-      name: '臺南市瑞峰國小小型防災微電網',
+      name: '臺南市瑞峰國小',
       location: '臺南市南化區',
       pvCapacityKw: 91.12,
       essPowerKw: 600,
@@ -27,11 +27,11 @@ export const useEmsStore = defineStore('ems', () => {
       loadLabel: '瑞峰國小關鍵負載',
       loadDeviceTitle: '瑞峰國小',
       loadDeviceSub: '緊急避難所',
-      loadBaseKw: 55
+      loadBaseKw: 30
     },
     {
       id: 'zengwen-vision-park',
-      name: '臺南市曾文市政願景園區小型防災微電網',
+      name: '臺南市曾文市政願景園區',
       location: '臺南市麻豆區',
       pvCapacityKw: 497.39,
       essPowerKw: 1000,
@@ -40,7 +40,7 @@ export const useEmsStore = defineStore('ems', () => {
       loadLabel: '曾文園區關鍵負載',
       loadDeviceTitle: '致遠樓',
       loadDeviceSub: '緊急避難所',
-      loadBaseKw: 180
+      loadBaseKw: 76
     }
   ]
 
@@ -78,7 +78,7 @@ export const useEmsStore = defineStore('ems', () => {
     const genCap = Number(site.genCapacityKw || 200)
 
     // 1. 負載與太陽能隨機微幅震盪
-    loadPower.value = loadBase + (Math.random() * loadBase * 0.12 - loadBase * 0.04)
+    loadPower.value = loadBase + (Math.random() * loadBase * 0.12 - loadBase * 0.24)
     pvPower.value = Math.max(0, pvCap * 0.4 + (Math.random() * pvCap * 0.2 - pvCap * 0.1))
 
     const load = loadPower.value

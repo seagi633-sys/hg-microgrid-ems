@@ -5,19 +5,28 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node backend-node/server.mjs",
+    "dev:all": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev\"",
+    "docs:api": "node scripts/generate_api_docs.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "cors": "^2.8.5",
     "echarts": "^6.1.0",
     "element-plus": "^2.14.1",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
     "pinia": "^3.0.4",
     "vue": "^3.5.34",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.6",
+    "concurrently": "^9.2.1",
+    "docx": "^9.5.0",
+    "pptxgenjs": "^4.0.1",
     "vite": "^8.0.12"
   }
 }
