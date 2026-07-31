@@ -39,6 +39,7 @@
             </template>
             <el-menu-item v-if="can('pv-system')" index="/pv-system">太陽光電系統</el-menu-item>
             <el-menu-item v-if="can('ess-system')" index="/ess-system">儲能系統</el-menu-item>
+            <el-menu-item v-if="can('pcs-full-info')" index="/ess-system/pcs-full-info">PCS參數資訊</el-menu-item>
             <el-menu-item v-if="can('genset-system')" index="/genset-system">柴油發電機</el-menu-item>
           </el-sub-menu>
 
@@ -121,7 +122,9 @@ authStore.initialize()
 const can = (key) => authStore.hasPermission(key)
 
 const showSystemInfo = computed(() => can('real-time-power') || can('history'))
-const showPowerInfo = computed(() => can('pv-system') || can('ess-system') || can('genset-system'))
+const showPowerInfo = computed(() =>
+  can('pv-system') || can('ess-system') || can('pcs-full-info') || can('genset-system')
+)
 const showPrediction = computed(() => can('PV-Prediction') || can('Load-Prediction'))
 const showSchedule = computed(() => can('charge-discharge-schedule') || can('power-service-schedule'))
 const showEvents = computed(() => can('event-log') || can('operation-log'))

@@ -4,6 +4,7 @@ export const ALL_PERMISSION_KEYS = [
   'history',
   'pv-system',
   'ess-system',
+  'pcs-full-info',
   'genset-system',
   'PV-Prediction',
   'Load-Prediction',
@@ -34,6 +35,7 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: 'pv-system', label: '太陽光電系統', path: '/pv-system' },
       { key: 'ess-system', label: '儲能系統', path: '/ess-system' },
+      { key: 'pcs-full-info', label: 'PCS參數資訊', path: '/ess-system/pcs-full-info' },
       { key: 'genset-system', label: '柴油發電機', path: '/genset-system' }
     ]
   },

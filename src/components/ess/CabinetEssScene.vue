@@ -24,7 +24,14 @@
             <PcsBlock :n="n" :active="true" />
           </div>
           <Transition name="pcs-popover-fade">
-            <div v-show="pcsHover[n]" class="pcs-hover-popover">
+            <div
+              v-show="pcsHover[n]"
+              class="pcs-hover-popover"
+              :class="{
+                'pcs-hover-popover-left': n === 1,
+                'pcs-hover-popover-right': n === cabinetCount
+              }"
+            >
               <div class="pcs-hover-panel">
                 <div class="pcs-hover-title">PCS-{{ n }} 即時資訊</div>
                 <div
@@ -60,7 +67,14 @@
             <CabinetBlock :n="n" :label-prefix="labelPrefix" :soc="bmsSocFor(n)" />
           </div>
           <Transition v-if="isJialiSite" name="bms-popover-fade">
-            <div v-show="bmsHover[n]" class="bms-hover-popover">
+            <div
+              v-show="bmsHover[n]"
+              class="bms-hover-popover"
+              :class="{
+                'bms-hover-popover-left': n === 1,
+                'bms-hover-popover-right': n === cabinetCount
+              }"
+            >
               <div class="bms-hover-panel">
                 <div class="bms-hover-title">BMS-{{ n }} 即時資訊</div>
                 <div
@@ -71,7 +85,7 @@
                   <span>{{ item.label }}</span>
                   <strong v-if="item.error" class="is-error">{{ item.error }}</strong>
                   <strong v-else-if="hasMetricValue(item)">
-                    {{ formatMetric(item) }} {{ item.unit }}
+                    {{ formatMetric(item) }} {{ item.unit }}<span v-if="item.indexText"> {{ item.indexText }}</span>
                   </strong>
                   <strong v-else>—</strong>
                 </div>
@@ -210,6 +224,21 @@ const formatMetric = (item) => {
   height: auto;
 }
 
+.cabinet-column-with-pcs .pcs-wrapper {
+  flex: 3 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cabinet-column-with-pcs .bms-wrapper {
+  flex: 7 1 0;
+}
+
+.cabinet-column-with-pcs .pcs-unit {
+  height: 100%;
+}
+
 .bms-wrapper {
   position: relative;
   flex: 1;
@@ -247,6 +276,28 @@ const formatMetric = (item) => {
   border-width: 0 6px 6px;
   border-style: solid;
   border-color: transparent transparent #303133;
+}
+
+.bms-hover-popover-left {
+  left: 0;
+  transform: none;
+}
+
+.bms-hover-popover-left::before {
+  left: 28px;
+  transform: none;
+}
+
+.bms-hover-popover-right {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.bms-hover-popover-right::before {
+  left: auto;
+  right: 28px;
+  transform: none;
 }
 
 .bms-popover-fade-enter-active,
@@ -312,6 +363,28 @@ const formatMetric = (item) => {
   border-width: 0 6px 6px;
   border-style: solid;
   border-color: transparent transparent #303133;
+}
+
+.pcs-hover-popover-left {
+  left: 0;
+  transform: none;
+}
+
+.pcs-hover-popover-left::before {
+  left: 28px;
+  transform: none;
+}
+
+.pcs-hover-popover-right {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.pcs-hover-popover-right::before {
+  left: auto;
+  right: 28px;
+  transform: none;
 }
 
 .pcs-hover-panel {

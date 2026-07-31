@@ -2,28 +2,6 @@
   <div class="ess-system-page">
     <SiteHeader />
 
-    <el-card class="page-header-card">
-      <template #header>
-        <div class="page-header">
-          <span class="page-title">儲能系統監控</span>
-        </div>
-      </template>
-      <div class="spec-summary">
-        <div class="spec-item">
-          <span class="label">系統規格（目前案場）</span>
-          <span class="value">{{ essSpecText }}</span>
-        </div>
-        <div class="spec-item">
-          <span class="label">運轉狀態</span>
-          <span class="value">{{ operationStatus }}</span>
-        </div>
-        <div class="spec-item">
-          <span class="label">電池 SOC</span>
-          <span class="value">{{ Number(emsStore.soc).toFixed(0) }}%</span>
-        </div>
-      </div>
-    </el-card>
-
     <el-card shadow="hover" class="site-card">
       <template #header>
         <div class="site-card-header">
@@ -149,6 +127,16 @@
                 <span class="units-summary-quality-led" :class="selectedUnitQualityLedClass" />
                 <span :class="selectedUnitQualityClass">{{ selectedUnitQualityText }}</span>
               </span>
+              <el-button
+                v-if="selectedUnitType === 'pcs' && canViewPcsFullInfo"
+                class="pcs-full-info-button"
+                size="small"
+                type="primary"
+                plain
+                @click="openPcsFullInfo"
+              >
+                完整 PCS 資訊
+              </el-button>
             </div>
 
             <div class="units-summary-metrics">
@@ -164,7 +152,7 @@
                 >
                   <template v-if="item.error">{{ item.error }}</template>
                   <template v-else-if="hasUnitMetricValue(item)">
-                    {{ formatUnitMetric(item) }}<span v-if="item.unit" class="units-summary-unit">{{ item.unit }}</span>
+                    {{ formatUnitMetric(item) }}<span v-if="item.unit" class="units-summary-unit">{{ item.unit }}</span><span v-if="item.indexText" class="units-summary-index">{{ item.indexText }}</span>
                   </template>
                   <template v-else>—</template>
                 </span>
@@ -180,13 +168,17 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEmsStore } from '../stores/emsStore'
+import { useAuthStore } from '../stores/authStore'
 import { useEssCabinetRealtime } from '../composables/useBmsRealtime'
 import SiteHeader from '../components/SiteHeader.vue'
 import CabinetEssScene from '../components/ess/CabinetEssScene.vue'
 import ContainerEssScene from '../components/ess/ContainerEssScene.vue'
 
 const emsStore = useEmsStore()
+const authStore = useAuthStore()
+const router = useRouter()
 const simSeed = ref(Math.random())
 const selectedSiteId = computed(() => emsStore.selectedSiteId)
 
@@ -226,6 +218,14 @@ const selectedUnitLabel = computed(() => {
   return `${prefix}-${selectedUnitIndex.value}`
 })
 const selectedUnitTypeTag = computed(() => (selectedUnitType.value === 'pcs' ? 'warning' : 'success'))
+const canViewPcsFullInfo = computed(() => authStore.hasPermission('pcs-full-info'))
+
+const openPcsFullInfo = () => {
+  router.push({
+    name: 'PcsFullInfo',
+    query: { unit: selectedUnitIndex.value || 1 }
+  })
+}
 
 const selectedUnitQualityText = computed(() => {
   const qualities = selectedUnitMetrics.value
@@ -275,11 +275,6 @@ const sceneTypeLabel = computed(() => {
   if (emsStore.selectedSiteId === 'jiali-junior-high') return '600kW/1200kWh儲能系統（PCS-1 ~ PCS-6 / BMS-1 ~ BMS-6）'
   if (isCabinetSite.value) return '600kW/1200kWh儲能系統'
   return '20呎貨櫃式儲能系統模擬'
-})
-
-const essSpecText = computed(() => {
-  const site = emsStore.selectedSite
-  return `${site.essPowerKw} kW / ${site.essEnergyKwh} kWh`
 })
 
 const essPower = computed(() => Number(emsStore.essPower || 0))
@@ -384,46 +379,6 @@ onUnmounted(() => {
   background: #f5f7fa;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #303133;
-}
-
-.spec-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.spec-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
-}
-
-.spec-item .label {
-  font-size: 12px;
-  color: #909399;
-}
-
-.spec-item .value {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-}
-
 .site-card {
   border-left: 4px solid #67c23a;
 }
@@ -500,35 +455,35 @@ onUnmounted(() => {
 
 .ess-top-metric-label {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  color: #909399;
+  color: #303133;
   margin-bottom: 4px;
   white-space: nowrap;
 }
 
 .ess-top-metric-value {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
-  color: #303133;
+  color: #00c853;
   line-height: 1.3;
   white-space: nowrap;
 }
 
 .ess-top-metric-value.power {
-  font-size: 17px;
+  font-size: 20px;
 }
 
 .ess-top-metric-value.power.discharge {
-  color: #e6a23c;
+  color: #00c853;
 }
 
 .ess-top-metric-value.power.charge {
-  color: #67c23a;
+  color: #00c853;
 }
 
 .ess-top-metric-value.soc {
-  color: #67c23a;
+  color: #00c853;
   font-size: 20px;
 }
 
@@ -628,6 +583,10 @@ onUnmounted(() => {
   color: #909399;
 }
 
+.pcs-full-info-button {
+  margin-left: auto;
+}
+
 .units-summary-quality-label {
   color: #000;
   font-weight: 600;
@@ -700,15 +659,16 @@ onUnmounted(() => {
 }
 
 .units-summary-metric-label {
-  font-size: 14px;
-  color: #909399;
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
   line-height: 1.2;
 }
 
 .units-summary-metric-value {
   font-size: 20px;
   font-weight: 700;
-  color: #303133;
+  color: #00c853;
   line-height: 1.25;
   word-break: break-word;
 }
@@ -723,6 +683,13 @@ onUnmounted(() => {
   margin-left: 3px;
   font-size: 16px;
   font-weight: 600;
+  color: #606266;
+}
+
+.units-summary-index {
+  margin-left: 6px;
+  font-size: 16px;
+  font-weight: 700;
   color: #606266;
 }
 

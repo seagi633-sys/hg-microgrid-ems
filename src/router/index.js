@@ -74,6 +74,12 @@ const routes = [
     meta: { title: '儲能系統' }
   },
   {
+    path: '/ess-system/pcs-full-info',
+    name: 'PcsFullInfo',
+    component: () => import('../views/PcsFullInfo.vue'),
+    meta: { title: '完整 PCS 資訊', permission: 'pcs-full-info' }
+  },
+  {
     path: '/genset-system',
     name: 'GensetSystem',
     component: () => import('../views/GensetSystem.vue'),
@@ -130,7 +136,7 @@ router.beforeEach((to) => {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
 
-  const permission = ROUTE_PERMISSION_MAP[to.path]
+  const permission = to.meta.permission || ROUTE_PERMISSION_MAP[to.path]
   if (permission && !authStore.hasPermission(permission)) {
     return authStore.getFirstAllowedPath()
   }

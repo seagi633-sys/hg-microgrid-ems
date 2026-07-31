@@ -5,10 +5,13 @@
       <span class="pcs-label">PCS-{{ n }}</span>
     </div>
     <div class="pcs-body">
-      <div class="pcs-symbol">
-        <span class="dc-side">DC</span>
-        <span class="arrow">⇄</span>
-        <span class="ac-side">AC</span>
+      <div class="acdc-symbol" aria-label="AC DC converter">
+        <div class="acdc-ac">AC</div>
+        <svg class="acdc-wave" viewBox="0 0 48 14" aria-hidden="true">
+          <path d="M2 8 C10 0 18 0 24 7 C30 14 38 14 46 6" />
+        </svg>
+        <div class="acdc-divider" />
+        <div class="acdc-dc">DC</div>
       </div>
     </div>
   </div>
@@ -78,25 +81,54 @@ defineProps({
   min-height: 0;
 }
 
-.pcs-symbol {
+.acdc-symbol {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
+  justify-content: center;
+  width: min(54px, 82%);
+  aspect-ratio: 1;
+  padding: 5px 6px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 143, 0, 0.28);
+  box-shadow:
+    inset 0 0 8px rgba(255, 255, 255, 0.12),
+    0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.dc-side,
-.ac-side {
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.2);
+.acdc-ac,
+.acdc-dc {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 0.9;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
 }
 
-.arrow {
-  font-size: 10px;
-  opacity: 0.9;
+.acdc-wave {
+  width: 74%;
+  height: 11px;
+  margin: 1px 0 0;
+}
+
+.acdc-wave path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.acdc-divider {
+  width: 74%;
+  height: 3px;
+  margin: 1px 0 2px;
+  border-radius: 3px;
+  background: #fff;
 }
 
 @keyframes pcs-led-blink {
