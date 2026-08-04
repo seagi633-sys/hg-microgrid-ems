@@ -81,6 +81,7 @@ def fetch_latest_point(site_id, device_id, point_id):
 
             value_col = _resolve_column(column_map, VALUE_COLUMN, VALUE_CANDIDATES)
             time_col = _resolve_column(column_map, TIME_COLUMN, TIME_CANDIDATES)
+            decoded_status_col = column_map.get('decoded_status')
 
             if not value_col:
                 raise RuntimeError(
@@ -99,6 +100,7 @@ def fetch_latest_point(site_id, device_id, point_id):
                     device_id,
                     point_id,
                     {value_expr} AS point_value,
+                    {decoded_status_col if decoded_status_col else 'NULL'} AS decoded_status,
                     {time_col} AS recorded_at,
                     quality
                 FROM vpp_realtime

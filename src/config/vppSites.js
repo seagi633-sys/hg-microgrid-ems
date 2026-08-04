@@ -138,6 +138,37 @@ export function buildBmsRealtimePoints(unitIndex) {
   ]
 }
 
+export function buildBmsFullRealtimePoints(unitIndex) {
+  const prefix = `BMS${unitIndex}`
+  return [
+    ...buildBmsRealtimePoints(unitIndex),
+    {
+      key: 'racksErrorStatus',
+      pointId: `${prefix}_RACKS_ERROR_STATUS`,
+      label: 'RACKS_ERROR_STATUS',
+      decimals: 0
+    },
+    {
+      key: 'racksWorkingStatus',
+      pointId: `${prefix}_RACKS_WORKING_STATUS`,
+      label: 'RACKS_WORKING_STATUS',
+      decimals: 0
+    },
+    {
+      key: 'rackCommErrorStatus',
+      pointId: `${prefix}_RACK_COMM_ERROR_STATUS`,
+      label: 'RACK_COMM_ERROR_STATUS',
+      decimals: 0
+    },
+    {
+      key: 'rackOnlineStatus',
+      pointId: `${prefix}_RACK_ONLINE_STATUS`,
+      label: 'RACK_ONLINE_STATUS',
+      decimals: 0
+    }
+  ]
+}
+
 export function buildPcsRealtimePoints(unitIndex) {
   const prefix = `PCS${unitIndex}`
   return [
@@ -173,41 +204,46 @@ export function buildPcsRealtimePoints(unitIndex) {
 }
 
 const PCS_FULL_POINT_DEFS = [
-  { suffix: 'AC_SWITCH_STATUS', label: 'AC 開關狀態', decimals: 0 },
+  // PCS 狀態欄
+  { suffix: 'ACTIVE_POWER_CONTROL_ENABLE', label: '實功率控制啟用', decimals: 0 },
   { suffix: 'ALARM_W01', label: '告警 W01', decimals: 0 },
   { suffix: 'ALARM_W02', label: '告警 W02', decimals: 0 },
   { suffix: 'ALARM_W03', label: '告警 W03', decimals: 0 },
   { suffix: 'ALARM_W04', label: '告警 W04', decimals: 0 },
   { suffix: 'ALARM_W05', label: '告警 W05', decimals: 0 },
   { suffix: 'ALARM_W06', label: '告警 W06', decimals: 0 },
-  { suffix: 'DC_SWITCH_STATUS', label: 'DC 開關狀態', decimals: 0 },
-  { suffix: 'POWER_FACTOR', label: '功率因數', decimals: 3 },
-  { suffix: 'REMOTE_ENABLE_STATUS', label: '遠端啟用狀態', decimals: 0 },
+  { suffix: 'POWER_COMMAND', label: '功率指令', decimals: 0 },
   { suffix: 'RUN_STATE', label: '運轉狀態', decimals: 0 },
+  { suffix: 'U1_GRID_MODE_COMMAND', label: 'U1 併網模式指令', decimals: 0 },
+  // 無單位 / 功率因數
+  { suffix: 'POWER_FACTOR', label: '功率因數', decimals: 3 },
+  // kW
   { suffix: 'SYSTEM_ACTIVE_POWER', label: '系統實功率', unit: 'kW', decimals: 2 },
-  { suffix: 'SYSTEM_APPARENT_POWER', label: '系統視在功率', unit: 'kVA', decimals: 2 },
-  { suffix: 'SYSTEM_REACTIVE_POWER', label: '系統虛功率', unit: 'kVar', decimals: 2 },
-  { suffix: 'U1_ACTIVE_POWER', label: 'U1 實功率', unit: 'kW', decimals: 2 },
-  { suffix: 'U1_AC_LEAKAGE_CURRENT', label: 'U1 AC 漏電流', unit: 'A', decimals: 2 },
-  { suffix: 'U1_APPARENT_POWER', label: 'U1 視在功率', unit: 'kVA', decimals: 2 },
-  { suffix: 'U1_DC_CURRENT', label: 'U1 DC 電流', unit: 'A', decimals: 2 },
   { suffix: 'U1_DC_POWER', label: 'U1 DC 功率', unit: 'kW', decimals: 2 },
-  { suffix: 'U1_DC_VOLTAGE', label: 'U1 DC 電壓', unit: 'V', decimals: 2 },
-  { suffix: 'U1_FREQUENCY', label: 'U1 頻率', unit: 'Hz', decimals: 2 },
-  { suffix: 'U1_GRID_MODE', label: 'U1 併網模式', decimals: 0 },
-  { suffix: 'U1_GRID_U_UV_VOLTAGE', label: 'U1 電網 UV 電壓', unit: 'V', decimals: 2 },
-  { suffix: 'U1_GRID_V_VW_VOLTAGE', label: 'U1 電網 VW 電壓', unit: 'V', decimals: 2 },
-  { suffix: 'U1_GRID_W_WU_VOLTAGE', label: 'U1 電網 WU 電壓', unit: 'V', decimals: 2 },
-  { suffix: 'U1_IGBT_U_TEMP', label: 'U1 IGBT U 溫度', unit: '°C', decimals: 1 },
-  { suffix: 'U1_IGBT_V_TEMP', label: 'U1 IGBT V 溫度', unit: '°C', decimals: 1 },
-  { suffix: 'U1_IGBT_W_TEMP', label: 'U1 IGBT W 溫度', unit: '°C', decimals: 1 },
-  { suffix: 'U1_INSULATION_RESISTANCE', label: 'U1 絕緣阻抗', decimals: 2 },
-  { suffix: 'U1_INTERNAL_TEMP', label: 'U1 內部溫度', unit: '°C', decimals: 1 },
+  // kVA
+  { suffix: 'SYSTEM_APPARENT_POWER', label: '系統視在功率', unit: 'kVA', decimals: 2 },
+  // kVar
+  { suffix: 'SYSTEM_REACTIVE_POWER', label: '系統虛功率', unit: 'kVar', decimals: 2 },
+  // A
+  { suffix: 'U1_AC_LEAKAGE_CURRENT', label: 'U1 AC 漏電流', unit: 'A', decimals: 2 },
+  { suffix: 'U1_DC_CURRENT', label: 'U1 DC 電流', unit: 'A', decimals: 2 },
   { suffix: 'U1_OUTPUT_U_CURRENT', label: 'U1 輸出 U 電流', unit: 'A', decimals: 2 },
   { suffix: 'U1_OUTPUT_V_CURRENT', label: 'U1 輸出 V 電流', unit: 'A', decimals: 2 },
   { suffix: 'U1_OUTPUT_W_CURRENT', label: 'U1 輸出 W 電流', unit: 'A', decimals: 2 },
-  { suffix: 'U1_POWER_FACTOR', label: 'U1 功率因數', decimals: 3 },
-  { suffix: 'U1_REACTIVE_POWER', label: 'U1 虛功率', unit: 'kVar', decimals: 2 }
+  // V
+  { suffix: 'U1_DC_VOLTAGE', label: 'U1 DC 電壓', unit: 'V', decimals: 2 },
+  { suffix: 'U1_GRID_U_UV_VOLTAGE', label: 'U1 電網 UV 電壓', unit: 'V', decimals: 2 },
+  { suffix: 'U1_GRID_V_VW_VOLTAGE', label: 'U1 電網 VW 電壓', unit: 'V', decimals: 2 },
+  { suffix: 'U1_GRID_W_WU_VOLTAGE', label: 'U1 電網 WU 電壓', unit: 'V', decimals: 2 },
+  // Hz
+  { suffix: 'U1_FREQUENCY', label: 'U1 頻率', unit: 'Hz', decimals: 2 },
+  // °C
+  { suffix: 'U1_IGBT_U_TEMP', label: 'U1 IGBT U 溫度', unit: '°C', decimals: 1 },
+  { suffix: 'U1_IGBT_V_TEMP', label: 'U1 IGBT V 溫度', unit: '°C', decimals: 1 },
+  { suffix: 'U1_IGBT_W_TEMP', label: 'U1 IGBT W 溫度', unit: '°C', decimals: 1 },
+  { suffix: 'U1_INTERNAL_TEMP', label: 'U1 內部溫度', unit: '°C', decimals: 1 },
+  // 其他
+  { suffix: 'U1_INSULATION_RESISTANCE', label: 'U1 絕緣阻抗', decimals: 2 }
 ]
 
 export function buildPcsFullRealtimePoints(unitIndex) {

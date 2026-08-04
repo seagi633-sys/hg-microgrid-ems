@@ -2,6 +2,7 @@ import { ref, computed, onMounted, onUnmounted, unref, watch } from 'vue'
 import {
   BMS1_DEVICE_ID,
   BMS1_REALTIME_POINTS,
+  buildBmsFullRealtimePoints,
   buildBmsRealtimePoints,
   buildPcsFullRealtimePoints,
   buildPcsRealtimePoints,
@@ -16,7 +17,7 @@ import {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 function emptyPointState() {
-  return { value: null, quality: '', recordedAt: '', error: '' }
+  return { value: null, decodedStatus: '', quality: '', recordedAt: '', error: '' }
 }
 
 function createEmptyPoints(pointsConfig) {
@@ -36,6 +37,67 @@ function parseNumericValue(data) {
   if (raw == null || raw === '') return null
   const num = Number(raw)
   return Number.isFinite(num) ? num : null
+}
+
+function parseDecodedStatusText(raw) {
+  if (raw == null || raw === '') return ''
+
+  if (typeof raw === 'string') {
+    const text = raw.trim()
+    if (!text) return ''
+    try {
+      return parseDecodedStatusText(JSON.parse(text)) || text
+    } catch {
+      return text
+    }
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.map(parseDecodedStatusText).filter(Boolean).join('、')
+  }
+
+  if (typeof raw === 'object') {
+    const entries = Object.values(raw)
+    const hasStatusEntries = entries.some(
+      (entry) => entry && typeof entry === 'object' && 'value' in entry
+    )
+    const normalTexts = []
+    const texts = entries
+      .map((entry) => {
+        if (entry == null || entry === '') return ''
+        if (typeof entry !== 'object') return String(entry)
+
+        if ('value' in entry) {
+          const value = entry.value
+          if (value === false || value === 0 || value === '0') {
+            const inactiveText = entry.text || entry.name || entry.label || entry.message || ''
+            if (String(inactiveText).toLowerCase() === 'normal') {
+              normalTexts.push(inactiveText)
+            }
+            return ''
+          }
+        }
+
+        return entry.text || entry.name || entry.label || entry.message || ''
+      })
+      .filter(Boolean)
+
+    if (texts.length) return texts.join('、')
+    if (normalTexts.length) return [...new Set(normalTexts)].join('、')
+    if (hasStatusEntries) return ''
+
+    try {
+      return JSON.stringify(raw)
+    } catch {
+      return String(raw)
+    }
+  }
+
+  return String(raw)
+}
+
+function parseDecodedStatus(data) {
+  return parseDecodedStatusText(data?.decoded_status ?? data?.decodedStatus)
 }
 
 function formatIndexValue(value) {
@@ -63,11 +125,13 @@ async function fetchPoint(vppSiteId, deviceId, pointId) {
   }
   const data = json.data || {}
   const value = parseNumericValue(data)
-  if (value == null) {
+  const decodedStatus = parseDecodedStatus(data)
+  if (value == null && !decodedStatus) {
     throw new Error('無法解析數值')
   }
   return {
     value,
+    decodedStatus,
     quality: data.quality || '',
     recordedAt: data.recorded_at || ''
   }
@@ -135,6 +199,7 @@ export function useVppDeviceRealtime(siteIdRef, deviceId, pointsConfig, deviceLa
         if (result.status === 'fulfilled') {
           next[key] = {
             value: result.value.value,
+            decodedStatus: result.value.decodedStatus,
             quality: result.value.quality,
             recordedAt: result.value.recordedAt,
             error: ''
@@ -235,6 +300,127 @@ export function usePcsNRealtime(siteIdRef, unitIndex, pollMs = 5000) {
   }
 }
 
+export function useBmsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
+  const loading = ref(false)
+  const connectionError = ref('')
+  const selectedUnitIndex = computed(() => {
+    const index = Number(unref(unitIndexRef))
+    return Number.isInteger(index) && index > 0 ? index : 1
+  })
+  const pointsConfig = computed(() => buildBmsFullRealtimePoints(selectedUnitIndex.value))
+  const points = ref(createEmptyPoints(pointsConfig.value))
+
+  let timer = null
+  let requestSeq = 0
+
+  const getVppSiteId = () => VPP_SITE_MAP[siteIdRef.value] || null
+
+  const metrics = computed(() =>
+    pointsConfig.value
+      .filter((cfg) => !cfg.hidden)
+      .map((cfg) => ({
+        ...cfg,
+        ...points.value[cfg.key],
+        indexText: buildIndexText(cfg, points.value)
+      }))
+  )
+
+  const latestRecordedAt = computed(() => {
+    const times = metrics.value
+      .map((item) => item.recordedAt)
+      .filter(Boolean)
+      .sort()
+    return times.length ? times[times.length - 1] : ''
+  })
+
+  const hasAnyValue = computed(() =>
+    metrics.value.some((item) => Number.isFinite(Number(item.value)))
+  )
+
+  const fetchAll = async () => {
+    const vppSiteId = getVppSiteId()
+    const config = pointsConfig.value
+    const unitIndex = selectedUnitIndex.value
+    if (!vppSiteId) {
+      loading.value = false
+      connectionError.value = ''
+      points.value = createEmptyPoints(config)
+      return
+    }
+
+    const seq = ++requestSeq
+    loading.value = true
+
+    try {
+      const results = await Promise.allSettled(
+        config.map(async (cfg) => {
+          const data = await fetchPoint(vppSiteId, getBmsDeviceId(unitIndex), cfg.pointId)
+          return { key: cfg.key, ...data }
+        })
+      )
+
+      if (seq !== requestSeq) return
+
+      const next = createEmptyPoints(config)
+      let successCount = 0
+
+      results.forEach((result, index) => {
+        const key = config[index].key
+        if (result.status === 'fulfilled') {
+          next[key] = {
+            value: result.value.value,
+            decodedStatus: result.value.decodedStatus,
+            quality: result.value.quality,
+            recordedAt: result.value.recordedAt,
+            error: ''
+          }
+          successCount += 1
+        } else {
+          next[key] = {
+            ...emptyPointState(),
+            error: result.reason?.message || '讀取失敗'
+          }
+        }
+      })
+
+      points.value = next
+      connectionError.value = successCount === 0 ? `無法取得 BMS-${unitIndex} 完整即時資料` : ''
+    } catch (err) {
+      if (seq !== requestSeq) return
+      connectionError.value = err.message || `無法取得 BMS-${unitIndex} 完整即時資料`
+      points.value = createEmptyPoints(config)
+    } finally {
+      if (seq === requestSeq) {
+        loading.value = false
+      }
+    }
+  }
+
+  onMounted(() => {
+    fetchAll()
+    timer = setInterval(fetchAll, pollMs)
+  })
+
+  onUnmounted(() => {
+    if (timer) clearInterval(timer)
+  })
+
+  watch([siteIdRef, selectedUnitIndex], () => {
+    points.value = createEmptyPoints(pointsConfig.value)
+    fetchAll()
+  })
+
+  return {
+    loading,
+    connectionError,
+    points,
+    metrics,
+    latestRecordedAt,
+    hasAnyValue,
+    fetchAll
+  }
+}
+
 export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
   const loading = ref(false)
   const connectionError = ref('')
@@ -301,6 +487,7 @@ export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
         if (result.status === 'fulfilled') {
           next[key] = {
             value: result.value.value,
+            decodedStatus: result.value.decodedStatus,
             quality: result.value.quality,
             recordedAt: result.value.recordedAt,
             error: ''

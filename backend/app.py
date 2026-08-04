@@ -74,6 +74,7 @@ def serialize_row(row):
         'point_id': row.get('point_id'),
         'value': value,
         'numeric_value': numeric_value,
+        'decoded_status': row.get('decoded_status'),
         'quality': row.get('quality'),
         'unit': 'V',
         'label': '平均電壓',

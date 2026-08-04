@@ -60,6 +60,7 @@ export function serializeRow(row) {
     point_id: row.point_id,
     value,
     numeric_value: numericValue,
+    decoded_status: row.decoded_status ?? null,
     quality: row.quality,
     unit: 'V',
     label: '平均電壓',

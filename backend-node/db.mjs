@@ -94,6 +94,7 @@ export async function fetchLatestPoint(siteId, deviceId, pointId) {
 
   const valueCol = resolveColumn(columnMap, VALUE_COLUMN, VALUE_CANDIDATES)
   const timeCol = resolveColumn(columnMap, TIME_COLUMN, TIME_CANDIDATES)
+  const decodedStatusCol = columnMap.decoded_status || null
 
   if (!valueCol) {
     throw new Error(`找不到數值欄位，可用欄位：${Object.values(columnMap).sort().join(', ')}`)
@@ -110,6 +111,7 @@ export async function fetchLatestPoint(siteId, deviceId, pointId) {
       device_id,
       point_id,
       ${valueExpr} AS point_value,
+      ${decodedStatusCol || 'NULL'} AS decoded_status,
       ${timeCol} AS recorded_at,
       quality
     FROM vpp_realtime

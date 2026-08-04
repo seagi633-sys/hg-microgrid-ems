@@ -35,11 +35,6 @@ const routes = [
     component: () => import('../views/RealTimePower.vue')
   },
   {
-    path: '/api-test',
-    name: 'ApiTest',
-    component: () => import('../views/ApiTest.vue')
-  },
-  {
     path: '/PV-Prediction',
     name: 'PVPrediction',
     component: () => import('../views/PVPrediction.vue')
@@ -77,7 +72,7 @@ const routes = [
     path: '/ess-system/pcs-full-info',
     name: 'PcsFullInfo',
     component: () => import('../views/PcsFullInfo.vue'),
-    meta: { title: '完整 PCS 資訊', permission: 'pcs-full-info' }
+    meta: { title: '設備細部參數', permission: 'pcs-full-info' }
   },
   {
     path: '/genset-system',

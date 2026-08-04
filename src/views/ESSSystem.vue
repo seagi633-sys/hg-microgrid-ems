@@ -135,7 +135,7 @@
                 plain
                 @click="openPcsFullInfo"
               >
-                完整 PCS 資訊
+                設備細部參數
               </el-button>
             </div>
 
@@ -148,7 +148,7 @@
                 <span class="units-summary-metric-label">{{ item.label }}</span>
                 <span
                   class="units-summary-metric-value"
-                  :class="{ 'is-error': item.error }"
+                  :class="{ 'is-error': item.error, 'is-abnormal': isAbnormalMetric(item) }"
                 >
                   <template v-if="item.error">{{ item.error }}</template>
                   <template v-else-if="hasUnitMetricValue(item)">
@@ -251,9 +251,15 @@ const selectedUnitQualityLedClass = computed(() => {
   return 'is-warn'
 })
 
-const hasUnitMetricValue = (item) => Number.isFinite(Number(item.value))
+const isRacksErrorStatus = (item) => item.key === 'racksErrorStatus'
+const shouldDisplayDecodedStatus = (item) => isRacksErrorStatus(item) && Boolean(item.decodedStatus)
+const isAbnormalMetric = (item) => shouldDisplayDecodedStatus(item)
+
+const hasUnitMetricValue = (item) =>
+  shouldDisplayDecodedStatus(item) || Number.isFinite(Number(item.value))
 
 const formatUnitMetric = (item) => {
+  if (shouldDisplayDecodedStatus(item)) return item.decodedStatus
   const num = Number(item.value)
   if (!Number.isFinite(num)) return '—'
   const decimals = item.decimals ?? 1
@@ -677,6 +683,10 @@ onUnmounted(() => {
   color: #e6a23c;
   font-size: 14px;
   font-weight: 600;
+}
+
+.units-summary-metric-value.is-abnormal {
+  color: #f56c6c;
 }
 
 .units-summary-unit {

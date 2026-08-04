@@ -39,8 +39,8 @@
             </template>
             <el-menu-item v-if="can('pv-system')" index="/pv-system">太陽光電系統</el-menu-item>
             <el-menu-item v-if="can('ess-system')" index="/ess-system">儲能系統</el-menu-item>
-            <el-menu-item v-if="can('pcs-full-info')" index="/ess-system/pcs-full-info">PCS參數資訊</el-menu-item>
             <el-menu-item v-if="can('genset-system')" index="/genset-system">柴油發電機</el-menu-item>
+            <el-menu-item v-if="can('pcs-full-info')" index="/ess-system/pcs-full-info">設備細部參數</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu v-if="showPrediction" index="prediction">
@@ -82,11 +82,6 @@
           <el-menu-item v-if="can('reports')" index="/reports">
             <el-icon><TrendCharts /></el-icon>
             <template #title>報表輸出</template>
-          </el-menu-item>
-
-          <el-menu-item v-if="can('api-test')" index="/api-test">
-            <el-icon><Connection /></el-icon>
-            <template #title>API 測試</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
