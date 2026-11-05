@@ -1,9 +1,9 @@
 import express from 'express'
 import cors from 'cors'
-import { checkDbHealth, fetchLatestPoint, PG_CONFIG } from './db.mjs'
+import { checkDbHealth, fetchEnergyRollup, fetchLatestPoint, fetchSiteStatuses, PG_CONFIG } from './db.mjs'
 import { serializeRow } from './serialize.mjs'
 
-const JIALI_SITE_ID = 'MG-TNN-001'
+const JIALI_SITE_ID = 'MG-TNN-002'
 const BMS1_DEVICE_ID = 'BMS1'
 const BMS1_VOLTAGE_POINT = 'BMS1_AVG_RACK_VOLTAGE'
 
@@ -57,6 +57,34 @@ app.get('/api/vpp/jiali/bms1/voltage', async (_req, res) => {
       point_id: BMS1_VOLTAGE_POINT,
       data: serializeRow(row)
     })
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message || String(err) })
+  }
+})
+
+app.get('/api/vpp/energy/rollup', async (req, res) => {
+  const siteId = String(req.query.site_id || JIALI_SITE_ID)
+  const bucketInterval = String(req.query.bucket_interval || '15 minutes')
+  const hours = req.query.hours
+
+  if (!/^[A-Za-z0-9_-]+$/.test(siteId)) {
+    return res.status(400).json({ ok: false, error: 'site_id 格式不正確' })
+  }
+
+  try {
+    const data = await fetchEnergyRollup(siteId, bucketInterval, hours)
+    return res.json({ ok: true, ...data })
+  } catch (err) {
+    const message = err.message || String(err)
+    const status = message.includes('不支援') ? 400 : 500
+    return res.status(status).json({ ok: false, error: message, site_id: siteId })
+  }
+})
+
+app.get('/api/vpp/sites/status', async (_req, res) => {
+  try {
+    const sites = await fetchSiteStatuses()
+    return res.json({ ok: true, sites })
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message || String(err) })
   }

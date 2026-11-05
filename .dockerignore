@@ -1,0 +1,32 @@
+# Vue build artefacts & deps
+node_modules
+dist
+dist-ssr
+*.local
+
+# Git / IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Docs & scripts (not needed in image)
+docs
+scripts
+*.md
+!backend/README.md
+
+# Python backend (Node API is used in Docker)
+backend/__pycache__
+backend/**/__pycache__
+backend/.venv
+backend/venv
+
+# Env secrets — inject via compose env_file / environment
+backend/.env
+.env
+.env.*
+
+# Misc
+**/*.log
+**/.DS_Store

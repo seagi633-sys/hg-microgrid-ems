@@ -16,7 +16,7 @@
         <div class="container-brand">ESS</div>
       </div>
       <div class="container-soc-wrap">
-        <div class="soc-label">SOC {{ soc.toFixed(0) }}%</div>
+        <div class="soc-label">SOC {{ formatSocValue(soc) }}%</div>
         <div class="container-soc-bar">
           <div class="container-soc-fill" :style="{ width: `${soc}%` }" />
         </div>
@@ -37,6 +37,13 @@ const props = defineProps({
   soc: { type: Number, default: 0 },
   powerKw: { type: Number, default: 0 }
 })
+
+const formatSocValue = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  const fixed = num.toFixed(2)
+  return fixed.endsWith('0') ? num.toFixed(1) : fixed
+}
 
 const activityClass = computed(() => {
   if (props.powerKw > 0.5) return 'discharging'

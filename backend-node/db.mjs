@@ -9,7 +9,7 @@ loadEnv(join(__dirname, '../backend/.env'))
 const { Pool } = pg
 
 const PG_CONFIG = {
-  host: process.env.PG_HOST || '192.168.1.17',
+  host: process.env.PG_HOST || '192.168.1.199',
   port: Number(process.env.PG_PORT || '5432'),
   user: process.env.PG_USER || 'ems',
   password: process.env.PG_PASSWORD || '',
@@ -131,4 +131,133 @@ export async function checkDbHealth() {
   return result.rows[0]
 }
 
-export { PG_CONFIG }
+const ONLINE_WINDOW_SEC = 120
+
+export async function fetchSiteStatuses() {
+  const result = await pool.query(`
+    SELECT
+      s.site_id,
+      s.site_name,
+      h.connector_status,
+      h.data_delay_sec,
+      h.received_at,
+      h.edge_time,
+      COALESCE(a.critical_count, 0)::int AS critical_count,
+      COALESCE(a.warning_count, 0)::int AS warning_count,
+      COALESCE(a.info_count, 0)::int AS info_count
+    FROM vpp_site s
+    LEFT JOIN LATERAL (
+      SELECT connector_status, data_delay_sec, received_at, edge_time
+      FROM vpp_site_heartbeat
+      WHERE site_id = s.site_id
+      ORDER BY received_at DESC NULLS LAST
+      LIMIT 1
+    ) h ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*) FILTER (WHERE severity = 'critical') AS critical_count,
+        COUNT(*) FILTER (WHERE severity = 'warning') AS warning_count,
+        COUNT(*) FILTER (WHERE severity = 'info') AS info_count
+      FROM vpp_alarm_active
+      WHERE site_id = s.site_id
+    ) a ON TRUE
+    WHERE s.deleted_at IS NULL
+    ORDER BY s.site_id
+  `)
+
+  const now = Date.now()
+  return result.rows.map((row) => {
+    const receivedAt = row.received_at ? new Date(row.received_at) : null
+    const edgeTime = row.edge_time ? new Date(row.edge_time) : null
+    const lastSeen = receivedAt || edgeTime
+    const ageSec = lastSeen ? (now - lastSeen.getTime()) / 1000 : null
+    const hasHeartbeat = row.connector_status != null || lastSeen != null || row.data_delay_sec != null
+    const fresh = ageSec != null && ageSec >= 0 && ageSec <= ONLINE_WINDOW_SEC
+    const critical = Number(row.critical_count || 0)
+    const warning = Number(row.warning_count || 0)
+    const info = Number(row.info_count || 0)
+
+    return {
+      site_id: row.site_id,
+      site_name: row.site_name,
+      online: fresh && row.connector_status !== 'offline',
+      data_delay_sec: hasHeartbeat ? row.data_delay_sec : null,
+      last_seen_at: lastSeen ? lastSeen.toISOString() : null,
+      alarms: {
+        total: critical + warning + info,
+        critical,
+        warning,
+        info
+      }
+    }
+  })
+}
+
+export { PG_CONFIG, ONLINE_WINDOW_SEC }
+
+const ROLLUP_NAME = 'mpm_1'
+const BUCKET_INTERVALS = new Set(['1 minute', '15 minutes', '1 hour', '1 day'])
+const MAX_ROLLUP_HOURS = {
+  '1 minute': 48,
+  '15 minutes': 24 * 31,
+  '1 hour': 24 * 90,
+  '1 day': 24 * 400
+}
+
+function roundMetric(value, digits = 4) {
+  if (value == null || value === '') return null
+  const number = Number(value)
+  if (!Number.isFinite(number)) return null
+  return Number(number.toFixed(digits))
+}
+
+export async function fetchEnergyRollup(siteId, bucketInterval, hours) {
+  if (!BUCKET_INTERVALS.has(bucketInterval)) {
+    throw new Error('不支援的時間粒度')
+  }
+  const requestedHours = Number(hours)
+  const spanHours = Math.min(
+    MAX_ROLLUP_HOURS[bucketInterval],
+    Math.max(1, Number.isFinite(requestedHours) ? Math.trunc(requestedHours) : 24)
+  )
+
+  const result = await pool.query(
+    `
+    SELECT
+      bucket_time,
+      avg_power_kw,
+      import_energy_kwh,
+      export_energy_kwh,
+      import_energy_total_kwh,
+      export_energy_total_kwh,
+      soc,
+      soc_kwh,
+      sample_count
+    FROM vpp_energy_rollup
+    WHERE site_id = $1
+      AND rollup_name = $2
+      AND bucket_interval = $3
+      AND bucket_time >= NOW() - ($4::int * INTERVAL '1 hour')
+    ORDER BY bucket_time ASC
+    `,
+    [siteId, ROLLUP_NAME, bucketInterval, spanHours]
+  )
+
+  return {
+    site_id: siteId,
+    rollup_name: ROLLUP_NAME,
+    bucket_interval: bucketInterval,
+    hours: spanHours,
+    points: result.rows.map((row) => ({
+      bucket_time: row.bucket_time instanceof Date ? row.bucket_time.toISOString() : row.bucket_time,
+      avg_power_kw: roundMetric(row.avg_power_kw),
+      import_energy_kwh: roundMetric(row.import_energy_kwh),
+      export_energy_kwh: roundMetric(row.export_energy_kwh),
+      import_energy_total_kwh: roundMetric(row.import_energy_total_kwh, 3),
+      export_energy_total_kwh: roundMetric(row.export_energy_total_kwh, 3),
+      soc: roundMetric(row.soc, 2),
+      soc_kwh: roundMetric(row.soc_kwh, 3),
+      sample_count: row.sample_count == null ? null : Number(row.sample_count)
+    }))
+  }
+}

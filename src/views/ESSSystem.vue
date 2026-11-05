@@ -22,7 +22,7 @@
         <div class="ess-top-metric highlight-power">
           <span class="ess-top-metric-label">目前充放電功率</span>
           <span class="ess-top-metric-value power" :class="selectedPowerClass">
-            <template v-if="isJialiSite && selectedPcsActivePower != null">
+            <template v-if="hasVppRealtimeData && selectedPcsActivePower != null">
               {{ formatPcsActivePower(selectedPcsActivePower) }}
             </template>
             <template v-else>{{ powerDisplayText }}</template>
@@ -31,16 +31,16 @@
         <div class="ess-top-metric highlight">
           <span class="ess-top-metric-label">電池 SOC</span>
           <span class="ess-top-metric-value soc">
-            <template v-if="isJialiSite && selectedBmsSoc != null">
-              {{ selectedBmsSoc.toFixed(1) }}%
+            <template v-if="hasVppRealtimeData && selectedBmsSoc != null">
+              {{ formatSocValue(selectedBmsSoc) }}%
             </template>
-            <template v-else>{{ Number(emsStore.soc).toFixed(0) }}%</template>
+            <template v-else>{{ formatSocValue(emsStore.soc) }}%</template>
           </span>
         </div>
         <div class="ess-top-metric highlight">
           <span class="ess-top-metric-label">電池 SOH</span>
           <span class="ess-top-metric-value">
-            <template v-if="isJialiSite && selectedBmsSoh != null">
+            <template v-if="hasVppRealtimeData && selectedBmsSoh != null">
               {{ selectedBmsSoh.toFixed(1) }}%
             </template>
             <template v-else>—</template>
@@ -55,7 +55,7 @@
         <div class="ess-top-metric">
           <span class="ess-top-metric-label">市電頻率</span>
           <span class="ess-top-metric-value">
-            <template v-if="isJialiSite && selectedPcsFrequency != null">
+            <template v-if="hasVppRealtimeData && selectedPcsFrequency != null">
               {{ selectedPcsFrequency.toFixed(2) }} Hz
             </template>
             <template v-else>{{ currentMetrics.gridFrequency.toFixed(2) }} Hz</template>
@@ -89,11 +89,11 @@
           </div>
         </div>
 
-        <div v-if="isJialiSite" class="ess-side-panel">
+        <div v-if="hasVppRealtimeData" class="ess-side-panel">
           <div class="units-summary">
             <div class="units-summary-header">
               <div class="units-summary-title">各機組即時資訊</div>
-              <div class="units-summary-source">PostgreSQL · MG-TNN-001</div>
+              <div class="units-summary-source">PostgreSQL · {{ selectedVppSiteId }}</div>
             </div>
             <el-select
               v-model="selectedUnitKey"
@@ -172,6 +172,7 @@ import { useRouter } from 'vue-router'
 import { useEmsStore } from '../stores/emsStore'
 import { useAuthStore } from '../stores/authStore'
 import { useEssCabinetRealtime } from '../composables/useBmsRealtime'
+import { VPP_SITE_MAP } from '../config/vppSites'
 import SiteHeader from '../components/SiteHeader.vue'
 import CabinetEssScene from '../components/ess/CabinetEssScene.vue'
 import ContainerEssScene from '../components/ess/ContainerEssScene.vue'
@@ -184,7 +185,8 @@ const selectedSiteId = computed(() => emsStore.selectedSiteId)
 
 const { bmsUnits, pcsUnits } = useEssCabinetRealtime(selectedSiteId, 5000)
 
-const isJialiSite = computed(() => emsStore.selectedSiteId === 'jiali-junior-high')
+const selectedVppSiteId = computed(() => VPP_SITE_MAP[emsStore.selectedSiteId] || null)
+const hasVppRealtimeData = computed(() => Boolean(selectedVppSiteId.value))
 
 const selectedUnitKey = ref('bms:1')
 
@@ -258,10 +260,20 @@ const isAbnormalMetric = (item) => shouldDisplayDecodedStatus(item)
 const hasUnitMetricValue = (item) =>
   shouldDisplayDecodedStatus(item) || Number.isFinite(Number(item.value))
 
+const formatFlexibleTwoDecimals = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  const fixed = num.toFixed(2)
+  return fixed.endsWith('0') ? num.toFixed(1) : fixed
+}
+
+const formatSocValue = (value) => formatFlexibleTwoDecimals(value)
+
 const formatUnitMetric = (item) => {
   if (shouldDisplayDecodedStatus(item)) return item.decodedStatus
   const num = Number(item.value)
   if (!Number.isFinite(num)) return '—'
+  if (item.trimSecondDecimal) return formatFlexibleTwoDecimals(num)
   const decimals = item.decimals ?? 1
   return num.toFixed(decimals)
 }
@@ -308,7 +320,7 @@ const powerDisplayText = computed(() => {
 })
 
 const selectedPowerClass = computed(() => {
-  const p = isJialiSite.value && selectedPcsActivePower.value != null
+  const p = hasVppRealtimeData.value && selectedPcsActivePower.value != null
     ? selectedPcsActivePower.value
     : essPower.value
   if (p > 0.5) return 'discharge'

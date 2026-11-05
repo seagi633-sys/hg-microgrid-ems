@@ -53,7 +53,7 @@
       <text x="210" y="340" class="device-title">儲能系統</text>
       <text x="210" y="352" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.essPowerKw)} kW` }}</text>
       <text x="210" y="366" class="device-sub">{{ `${formatCapacity(emsStore.selectedSite.essEnergyKwh)} kWh` }}</text>
-      <text x="210" y="388" class="soc-text">SOC {{ Number(emsStore.soc || 0).toFixed(0) }}%</text>
+      <text x="210" y="388" class="soc-text">SOC {{ formatSocValue(emsStore.soc) }}%</text>
       <text x="228" y="220" class="power-label">{{ formatPower(emsStore.essPower, true) }}</text>
       <text x="260" y="350" class="soc-status" :class="socStatus.class">
       {{ socStatus.label }}
@@ -108,6 +108,13 @@ import { computed } from 'vue'
 import { useEmsStore } from '../stores/emsStore'
 
 const emsStore = useEmsStore()
+
+const formatSocValue = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  const fixed = num.toFixed(2)
+  return fixed.endsWith('0') ? num.toFixed(1) : fixed
+}
 
 const modeLabel = {
   1: '市電正常（光電併網運轉）',

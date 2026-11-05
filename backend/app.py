@@ -6,14 +6,14 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from db import PG_CONFIG, fetch_latest_point
+from db import PG_CONFIG, fetch_energy_rollup, fetch_latest_point, fetch_site_statuses
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-JIALI_SITE_ID = 'MG-TNN-001'
+JIALI_SITE_ID = 'MG-TNN-002'
 BMS1_DEVICE_ID = 'BMS1'
 BMS1_VOLTAGE_POINT = 'BMS1_AVG_RACK_VOLTAGE'
 
@@ -136,6 +136,33 @@ def jiali_bms1_voltage():
         'point_id': BMS1_VOLTAGE_POINT,
         'data': serialize_row(row),
     })
+
+
+@app.route('/api/vpp/energy/rollup')
+def energy_rollup():
+    site_id = request.args.get('site_id', JIALI_SITE_ID)
+    bucket_interval = request.args.get('bucket_interval', '15 minutes')
+    hours = request.args.get('hours', '24')
+
+    if not site_id or not site_id.replace('-', '').replace('_', '').isalnum():
+        return jsonify({'ok': False, 'error': 'site_id 格式不正確'}), 400
+
+    try:
+        data = fetch_energy_rollup(site_id, bucket_interval, hours)
+    except ValueError as exc:
+        return jsonify({'ok': False, 'error': str(exc), 'site_id': site_id}), 400
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc), 'site_id': site_id}), 500
+
+    return jsonify({'ok': True, **data})
+
+
+@app.route('/api/vpp/sites/status')
+def site_statuses():
+    try:
+        return jsonify({'ok': True, 'sites': fetch_site_statuses()})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 @app.route('/api/health/db')

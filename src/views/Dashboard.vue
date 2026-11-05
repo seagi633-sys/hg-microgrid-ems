@@ -2,6 +2,8 @@
   <div class="dashboard-container">
     <SiteHeader />
 
+    <SiteStatusTable />
+
     <el-card class="mode-selector-card selector-card">
       <div class="selector-row">
         <div class="selector-inline-label">情境選擇</div>
@@ -58,7 +60,7 @@
             <div class="soc-section">
               <div class="soc-header">
                 <span class="soc-label">電池電量 (SOC)</span>
-                <span class="soc-num">{{ Number(emsStore.soc || 0).toFixed(0) }}%</span>
+                <span class="soc-num">{{ formatSocValue(emsStore.soc) }}%</span>
               </div>
               <el-progress 
                 :percentage="Math.min(100, Math.max(0, Math.round(Number(emsStore.soc || 0))))" 
@@ -113,10 +115,18 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useEmsStore } from '../stores/emsStore'
 import SiteHeader from '../components/SiteHeader.vue'
+import SiteStatusTable from '../components/SiteStatusTable.vue'
 import SingleLineDiagram from '../components/SingleLineDiagram.vue'
 
 const emsStore = useEmsStore()
 let timer = null
+
+const formatSocValue = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  const fixed = num.toFixed(2)
+  return fixed.endsWith('0') ? num.toFixed(1) : fixed
+}
 
 onMounted(() => {
   emsStore.fetchEmsData()

@@ -1,5 +1,5 @@
 <template>
-  <div class="cabinet-scene" :class="[activityClass, { 'has-pcs-row': isJialiSite }]">
+  <div class="cabinet-scene" :class="[activityClass, { 'has-pcs-row': hasVppRealtimeData }]">
     <div class="scene-floor" />
     <div class="cabinet-row" :class="{ 'cabinet-row-many': cabinetCount > 6 }">
       <div
@@ -7,12 +7,12 @@
         :key="n"
         class="cabinet-column"
         :class="{
-          'cabinet-column-with-pcs': isJialiSite,
+          'cabinet-column-with-pcs': hasVppRealtimeData,
           'column-hover-active': bmsHover[n] || pcsHover[n]
         }"
       >
         <div
-          v-if="isJialiSite"
+          v-if="hasVppRealtimeData"
           class="pcs-wrapper"
           @mouseenter="setPcsHover(n, true)"
           @mouseleave="setPcsHover(n, false)"
@@ -60,13 +60,13 @@
             class="ess-cabinet bms-interactive"
             :class="[
               `cabinet-tone-${((n - 1) % 3) + 1}`,
-              { 'has-live-data': isJialiSite && hasAnyBmsMetric(n) }
+              { 'has-live-data': hasVppRealtimeData && hasAnyBmsMetric(n) }
             ]"
             :style="{ animationDelay: `${(n - 1) * 0.12}s` }"
           >
             <CabinetBlock :n="n" :label-prefix="labelPrefix" :soc="bmsSocFor(n)" />
           </div>
-          <Transition v-if="isJialiSite" name="bms-popover-fade">
+          <Transition v-if="hasVppRealtimeData" name="bms-popover-fade">
             <div
               v-show="bmsHover[n]"
               class="bms-hover-popover"
@@ -92,6 +92,9 @@
               </div>
             </div>
           </Transition>
+          <div class="cabinet-soc-label">
+            {{ formatSocValue(bmsSocFor(n)) }}%
+          </div>
         </div>
       </div>
     </div>
@@ -100,6 +103,7 @@
 
 <script setup>
 import { computed, reactive } from 'vue'
+import { VPP_SITE_MAP } from '../../config/vppSites'
 import CabinetBlock from './CabinetBlock.vue'
 import PcsBlock from './PcsBlock.vue'
 
@@ -112,12 +116,12 @@ const props = defineProps({
   pcsUnits: { type: Array, default: () => [] }
 })
 
-const isJialiSite = computed(() => props.siteId === 'jiali-junior-high')
+const hasVppRealtimeData = computed(() => Boolean(VPP_SITE_MAP[props.siteId]))
 const bmsHover = reactive({})
 const pcsHover = reactive({})
 
 const cabinetCount = computed(() => 6)
-const labelPrefix = computed(() => (isJialiSite.value ? 'BMS' : 'ESS'))
+const labelPrefix = computed(() => (hasVppRealtimeData.value ? 'BMS' : 'ESS'))
 
 const getBmsUnit = (n) => props.bmsUnits.find((unit) => unit.unitIndex === n) || null
 const getPcsUnit = (n) => props.pcsUnits.find((unit) => unit.unitIndex === n) || null
@@ -134,7 +138,7 @@ const bmsMetricsFor = (n) => getBmsUnit(n)?.metrics || []
 const pcsMetricsFor = (n) => getPcsUnit(n)?.metrics || []
 
 const bmsSocFor = (n) => {
-  if (!isJialiSite.value) return props.soc
+  if (!hasVppRealtimeData.value) return props.soc
   const soc = getBmsUnit(n)?.soc
   return soc != null ? soc : props.soc
 }
@@ -158,6 +162,13 @@ const formatMetric = (item) => {
   if (!Number.isFinite(num)) return '—'
   const decimals = item.decimals ?? 1
   return num.toFixed(decimals)
+}
+
+const formatSocValue = (value) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  const fixed = num.toFixed(2)
+  return fixed.endsWith('0') ? num.toFixed(1) : fixed
 }
 </script>
 
@@ -245,6 +256,27 @@ const formatMetric = (item) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.cabinet-soc-label {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: -27px;
+  z-index: 4;
+  padding: 3px 4px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #fffde7;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-shadow: none;
+  box-shadow: none;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .bms-interactive {

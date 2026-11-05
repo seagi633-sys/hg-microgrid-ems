@@ -1,23 +1,99 @@
 import { ref, computed, onMounted, onUnmounted, unref, watch } from 'vue'
 import {
+  ATS_DEVICE_IDS,
+  ATS_DG_DEVICE_ID,
   BMS1_DEVICE_ID,
   BMS1_REALTIME_POINTS,
+  buildAtsFullRealtimePoints,
   buildBmsFullRealtimePoints,
   buildBmsRealtimePoints,
+  buildDgFullRealtimePoints,
+  buildEmsFullRealtimePoints,
+  buildFg4010FullRealtimePoints,
+  buildMcFullRealtimePoints,
+  buildMpmFullRealtimePoints,
   buildPcsFullRealtimePoints,
   buildPcsRealtimePoints,
+  buildRcbFullRealtimePoints,
+  buildUpsFullRealtimePoints,
+  DG_DEVICE_ID,
+  DG_DEVICE_IDS,
+  EMS_DEVICE_IDS,
+  EMS_GW_DEVICE_ID,
   ESS_CABINET_COUNT,
+  FG4010_DEVICE_ID,
+  FG4010_DEVICE_IDS,
+  getAtsDeviceLabel,
   getBmsDeviceId,
+  getDgDeviceLabel,
+  getEmsDeviceLabel,
+  getFg4010DeviceLabel,
+  getMcDeviceLabel,
+  getMpmDeviceLabel,
   getPcsDeviceId,
+  getRcbDeviceLabel,
+  getUpsDeviceLabel,
+  MC_DEVICE_IDS,
+  MC_DG_DEVICE_ID,
+  METER_GW_DEVICE_ID,
+  MPM_DEVICE_IDS,
   PCS1_DEVICE_ID,
   PCS1_REALTIME_POINTS,
+  RCB_ACC_DEVICE_ID,
+  RCB_DEVICE_IDS,
+  UPS1_DEVICE_ID,
+  UPS_DEVICE_IDS,
   VPP_SITE_MAP
 } from '../config/vppSites'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const MAX_CONCURRENT_POINT_FETCHES = 8
+let activePointFetches = 0
+const pointFetchWaiters = []
+
+function acquirePointFetchSlot() {
+  if (activePointFetches < MAX_CONCURRENT_POINT_FETCHES) {
+    activePointFetches += 1
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    pointFetchWaiters.push(resolve)
+  }).then(() => {
+    activePointFetches += 1
+  })
+}
+
+function releasePointFetchSlot() {
+  activePointFetches = Math.max(0, activePointFetches - 1)
+  const next = pointFetchWaiters.shift()
+  if (next) next()
+}
+
+function startPollingLoop(runFetch, pollMs, startDelayMs = 0) {
+  let stopped = false
+  let timer = null
+
+  const loop = async () => {
+    if (stopped) return
+    try {
+      await runFetch()
+    } finally {
+      if (!stopped) {
+        timer = setTimeout(loop, pollMs)
+      }
+    }
+  }
+
+  timer = setTimeout(loop, Math.max(0, startDelayMs))
+
+  return () => {
+    stopped = true
+    if (timer) clearTimeout(timer)
+  }
+}
 
 function emptyPointState() {
-  return { value: null, decodedStatus: '', quality: '', recordedAt: '', error: '' }
+  return { value: null, decodedStatus: '', decodedItems: [], quality: '', recordedAt: '', error: '' }
 }
 
 function createEmptyPoints(pointsConfig) {
@@ -70,15 +146,15 @@ function parseDecodedStatusText(raw) {
         if ('value' in entry) {
           const value = entry.value
           if (value === false || value === 0 || value === '0') {
-            const inactiveText = entry.text || entry.name || entry.label || entry.message || ''
-            if (String(inactiveText).toLowerCase() === 'normal') {
-              normalTexts.push(inactiveText)
+            const inactiveText = entry.name || entry.text || entry.label || entry.message || ''
+            if (String(entry.text || inactiveText).toLowerCase() === 'normal') {
+              normalTexts.push(entry.text || inactiveText)
             }
             return ''
           }
         }
 
-        return entry.text || entry.name || entry.label || entry.message || ''
+        return entry.name || entry.text || entry.label || entry.message || ''
       })
       .filter(Boolean)
 
@@ -100,6 +176,44 @@ function parseDecodedStatus(data) {
   return parseDecodedStatusText(data?.decoded_status ?? data?.decodedStatus)
 }
 
+function parseDecodedRawObject(raw) {
+  if (raw == null || raw === '') return null
+  if (typeof raw === 'object') return raw
+  if (typeof raw !== 'string') return null
+  const text = raw.trim()
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+function parseDecodedItems(data) {
+  const raw = parseDecodedRawObject(data?.decoded_status ?? data?.decodedStatus)
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return []
+
+  const entries = Object.entries(raw)
+  const hasIndexedEntries = entries.every(([key, entry]) => (
+    /^\d+$/.test(key)
+    && entry
+    && typeof entry === 'object'
+    && ('name' in entry || 'text' in entry)
+  ))
+
+  if (!hasIndexedEntries) return []
+
+  return entries
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([, entry]) => ({
+      name: entry.name || entry.label || '',
+      text: entry.text != null ? String(entry.text) : String(entry.value ?? ''),
+      value: entry.value,
+      severity: entry.severity || 'info'
+    }))
+    .filter((item) => item.name || item.text)
+}
+
 function formatIndexValue(value) {
   const num = Number(value)
   if (!Number.isFinite(num)) return ''
@@ -113,27 +227,34 @@ function buildIndexText(cfg, pointStates) {
 }
 
 async function fetchPoint(vppSiteId, deviceId, pointId) {
-  const params = new URLSearchParams({
-    site_id: vppSiteId,
-    device_id: deviceId,
-    point_id: pointId
-  })
-  const res = await fetch(`${API_BASE}/api/vpp/realtime/latest?${params}`)
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok || !json.ok) {
-    throw new Error(formatFetchError(res.status, json))
-  }
-  const data = json.data || {}
-  const value = parseNumericValue(data)
-  const decodedStatus = parseDecodedStatus(data)
-  if (value == null && !decodedStatus) {
-    throw new Error('無法解析數值')
-  }
-  return {
-    value,
-    decodedStatus,
-    quality: data.quality || '',
-    recordedAt: data.recorded_at || ''
+  await acquirePointFetchSlot()
+  try {
+    const params = new URLSearchParams({
+      site_id: vppSiteId,
+      device_id: deviceId,
+      point_id: pointId
+    })
+    const res = await fetch(`${API_BASE}/api/vpp/realtime/latest?${params}`)
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json.ok) {
+      throw new Error(formatFetchError(res.status, json))
+    }
+    const data = json.data || {}
+    const value = parseNumericValue(data)
+    const decodedStatus = parseDecodedStatus(data)
+    const decodedItems = parseDecodedItems(data)
+    if (value == null && !decodedStatus && !decodedItems.length) {
+      throw new Error('無法解析數值')
+    }
+    return {
+      value,
+      decodedStatus,
+      decodedItems,
+      quality: data.quality || '',
+      recordedAt: data.recorded_at || ''
+    }
+  } finally {
+    releasePointFetchSlot()
   }
 }
 
@@ -142,8 +263,9 @@ export function useVppDeviceRealtime(siteIdRef, deviceId, pointsConfig, deviceLa
   const connectionError = ref('')
   const points = ref(createEmptyPoints(pointsConfig))
 
-  let timer = null
   let requestSeq = 0
+  let stopPolling = null
+  let fetchInFlight = null
 
   const getVppSiteId = () => VPP_SITE_MAP[siteIdRef.value] || null
 
@@ -170,6 +292,8 @@ export function useVppDeviceRealtime(siteIdRef, deviceId, pointsConfig, deviceLa
   )
 
   const fetchAll = async () => {
+    if (fetchInFlight) return fetchInFlight
+
     const vppSiteId = getVppSiteId()
     if (!vppSiteId) {
       loading.value = false
@@ -178,64 +302,70 @@ export function useVppDeviceRealtime(siteIdRef, deviceId, pointsConfig, deviceLa
       return
     }
 
-    const seq = ++requestSeq
+    const seq = requestSeq
     loading.value = true
 
-    try {
-      const results = await Promise.allSettled(
-        pointsConfig.map(async (cfg) => {
-          const data = await fetchPoint(vppSiteId, deviceId, cfg.pointId)
-          return { key: cfg.key, ...data }
+    const task = (async () => {
+      try {
+        const results = await Promise.allSettled(
+          pointsConfig.map(async (cfg) => {
+            const data = await fetchPoint(vppSiteId, deviceId, cfg.pointId)
+            return { key: cfg.key, ...data }
+          })
+        )
+
+        if (seq !== requestSeq) return
+
+        const next = createEmptyPoints(pointsConfig)
+        let successCount = 0
+
+        results.forEach((result, index) => {
+          const key = pointsConfig[index].key
+          if (result.status === 'fulfilled') {
+            next[key] = {
+              value: result.value.value,
+              decodedStatus: result.value.decodedStatus,
+              decodedItems: result.value.decodedItems || [],
+              quality: result.value.quality,
+              recordedAt: result.value.recordedAt,
+              error: ''
+            }
+            successCount += 1
+          } else {
+            next[key] = {
+              ...emptyPointState(),
+              error: result.reason?.message || '讀取失敗'
+            }
+          }
         })
-      )
 
-      if (seq !== requestSeq) return
-
-      const next = createEmptyPoints(pointsConfig)
-      let successCount = 0
-
-      results.forEach((result, index) => {
-        const key = pointsConfig[index].key
-        if (result.status === 'fulfilled') {
-          next[key] = {
-            value: result.value.value,
-            decodedStatus: result.value.decodedStatus,
-            quality: result.value.quality,
-            recordedAt: result.value.recordedAt,
-            error: ''
-          }
-          successCount += 1
-        } else {
-          next[key] = {
-            ...emptyPointState(),
-            error: result.reason?.message || '讀取失敗'
-          }
-        }
-      })
-
-      points.value = next
-      connectionError.value = successCount === 0 ? `無法取得 ${deviceLabel} 即時資料` : ''
-    } catch (err) {
-      if (seq !== requestSeq) return
-      connectionError.value = err.message || `無法取得 ${deviceLabel} 即時資料`
-      points.value = createEmptyPoints(pointsConfig)
-    } finally {
-      if (seq === requestSeq) {
-        loading.value = false
+        points.value = next
+        connectionError.value = successCount === 0 ? `無法取得 ${deviceLabel} 即時資料` : ''
+      } catch (err) {
+        if (seq !== requestSeq) return
+        connectionError.value = err.message || `無法取得 ${deviceLabel} 即時資料`
+        points.value = createEmptyPoints(pointsConfig)
+      } finally {
+        if (fetchInFlight === task) fetchInFlight = null
+        if (seq === requestSeq) loading.value = false
       }
-    }
+    })()
+
+    fetchInFlight = task
+    return task
   }
 
   onMounted(() => {
-    fetchAll()
-    timer = setInterval(fetchAll, pollMs)
+    stopPolling = startPollingLoop(fetchAll, pollMs)
   })
 
   onUnmounted(() => {
-    if (timer) clearInterval(timer)
+    if (stopPolling) stopPolling()
   })
 
   watch(siteIdRef, () => {
+    requestSeq += 1
+    fetchInFlight = null
     fetchAll()
   })
 
@@ -310,8 +440,9 @@ export function useBmsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
   const pointsConfig = computed(() => buildBmsFullRealtimePoints(selectedUnitIndex.value))
   const points = ref(createEmptyPoints(pointsConfig.value))
 
-  let timer = null
   let requestSeq = 0
+  let stopPolling = null
+  let fetchInFlight = null
 
   const getVppSiteId = () => VPP_SITE_MAP[siteIdRef.value] || null
 
@@ -338,6 +469,8 @@ export function useBmsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
   )
 
   const fetchAll = async () => {
+    if (fetchInFlight) return fetchInFlight
+
     const vppSiteId = getVppSiteId()
     const config = pointsConfig.value
     const unitIndex = selectedUnitIndex.value
@@ -348,64 +481,71 @@ export function useBmsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
       return
     }
 
-    const seq = ++requestSeq
+    const seq = requestSeq
     loading.value = true
 
-    try {
-      const results = await Promise.allSettled(
-        config.map(async (cfg) => {
-          const data = await fetchPoint(vppSiteId, getBmsDeviceId(unitIndex), cfg.pointId)
-          return { key: cfg.key, ...data }
+    const task = (async () => {
+      try {
+        const results = await Promise.allSettled(
+          config.map(async (cfg) => {
+            const data = await fetchPoint(vppSiteId, getBmsDeviceId(unitIndex), cfg.pointId)
+            return { key: cfg.key, ...data }
+          })
+        )
+
+        if (seq !== requestSeq) return
+
+        const next = createEmptyPoints(config)
+        let successCount = 0
+
+        results.forEach((result, index) => {
+          const key = config[index].key
+          if (result.status === 'fulfilled') {
+            next[key] = {
+              value: result.value.value,
+              decodedStatus: result.value.decodedStatus,
+              decodedItems: result.value.decodedItems || [],
+              quality: result.value.quality,
+              recordedAt: result.value.recordedAt,
+              error: ''
+            }
+            successCount += 1
+          } else {
+            next[key] = {
+              ...emptyPointState(),
+              error: result.reason?.message || '讀取失敗'
+            }
+          }
         })
-      )
 
-      if (seq !== requestSeq) return
-
-      const next = createEmptyPoints(config)
-      let successCount = 0
-
-      results.forEach((result, index) => {
-        const key = config[index].key
-        if (result.status === 'fulfilled') {
-          next[key] = {
-            value: result.value.value,
-            decodedStatus: result.value.decodedStatus,
-            quality: result.value.quality,
-            recordedAt: result.value.recordedAt,
-            error: ''
-          }
-          successCount += 1
-        } else {
-          next[key] = {
-            ...emptyPointState(),
-            error: result.reason?.message || '讀取失敗'
-          }
-        }
-      })
-
-      points.value = next
-      connectionError.value = successCount === 0 ? `無法取得 BMS-${unitIndex} 完整即時資料` : ''
-    } catch (err) {
-      if (seq !== requestSeq) return
-      connectionError.value = err.message || `無法取得 BMS-${unitIndex} 完整即時資料`
-      points.value = createEmptyPoints(config)
-    } finally {
-      if (seq === requestSeq) {
-        loading.value = false
+        points.value = next
+        connectionError.value = successCount === 0 ? `無法取得 BMS-${unitIndex} 完整即時資料` : ''
+      } catch (err) {
+        if (seq !== requestSeq) return
+        connectionError.value = err.message || `無法取得 BMS-${unitIndex} 完整即時資料`
+        points.value = createEmptyPoints(config)
+      } finally {
+        if (fetchInFlight === task) fetchInFlight = null
+        if (seq === requestSeq) loading.value = false
       }
-    }
+    })()
+
+    fetchInFlight = task
+    return task
   }
 
   onMounted(() => {
-    fetchAll()
-    timer = setInterval(fetchAll, pollMs)
+    const startDelay = Math.max(0, (selectedUnitIndex.value - 1) * 350)
+    stopPolling = startPollingLoop(fetchAll, pollMs, startDelay)
   })
 
   onUnmounted(() => {
-    if (timer) clearInterval(timer)
+    if (stopPolling) stopPolling()
   })
 
   watch([siteIdRef, selectedUnitIndex], () => {
+    requestSeq += 1
+    fetchInFlight = null
     points.value = createEmptyPoints(pointsConfig.value)
     fetchAll()
   })
@@ -431,8 +571,9 @@ export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
   const pointsConfig = computed(() => buildPcsFullRealtimePoints(selectedUnitIndex.value))
   const points = ref(createEmptyPoints(pointsConfig.value))
 
-  let timer = null
   let requestSeq = 0
+  let stopPolling = null
+  let fetchInFlight = null
 
   const getVppSiteId = () => VPP_SITE_MAP[siteIdRef.value] || null
 
@@ -456,6 +597,8 @@ export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
   )
 
   const fetchAll = async () => {
+    if (fetchInFlight) return fetchInFlight
+
     const vppSiteId = getVppSiteId()
     const config = pointsConfig.value
     const unitIndex = selectedUnitIndex.value
@@ -466,64 +609,71 @@ export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
       return
     }
 
-    const seq = ++requestSeq
+    const seq = requestSeq
     loading.value = true
 
-    try {
-      const results = await Promise.allSettled(
-        config.map(async (cfg) => {
-          const data = await fetchPoint(vppSiteId, getPcsDeviceId(unitIndex), cfg.pointId)
-          return { key: cfg.key, ...data }
+    const task = (async () => {
+      try {
+        const results = await Promise.allSettled(
+          config.map(async (cfg) => {
+            const data = await fetchPoint(vppSiteId, getPcsDeviceId(unitIndex), cfg.pointId)
+            return { key: cfg.key, ...data }
+          })
+        )
+
+        if (seq !== requestSeq) return
+
+        const next = createEmptyPoints(config)
+        let successCount = 0
+
+        results.forEach((result, index) => {
+          const key = config[index].key
+          if (result.status === 'fulfilled') {
+            next[key] = {
+              value: result.value.value,
+              decodedStatus: result.value.decodedStatus,
+              decodedItems: result.value.decodedItems || [],
+              quality: result.value.quality,
+              recordedAt: result.value.recordedAt,
+              error: ''
+            }
+            successCount += 1
+          } else {
+            next[key] = {
+              ...emptyPointState(),
+              error: result.reason?.message || '讀取失敗'
+            }
+          }
         })
-      )
 
-      if (seq !== requestSeq) return
-
-      const next = createEmptyPoints(config)
-      let successCount = 0
-
-      results.forEach((result, index) => {
-        const key = config[index].key
-        if (result.status === 'fulfilled') {
-          next[key] = {
-            value: result.value.value,
-            decodedStatus: result.value.decodedStatus,
-            quality: result.value.quality,
-            recordedAt: result.value.recordedAt,
-            error: ''
-          }
-          successCount += 1
-        } else {
-          next[key] = {
-            ...emptyPointState(),
-            error: result.reason?.message || '讀取失敗'
-          }
-        }
-      })
-
-      points.value = next
-      connectionError.value = successCount === 0 ? `無法取得 PCS-${unitIndex} 完整即時資料` : ''
-    } catch (err) {
-      if (seq !== requestSeq) return
-      connectionError.value = err.message || `無法取得 PCS-${unitIndex} 完整即時資料`
-      points.value = createEmptyPoints(config)
-    } finally {
-      if (seq === requestSeq) {
-        loading.value = false
+        points.value = next
+        connectionError.value = successCount === 0 ? `無法取得 PCS-${unitIndex} 完整即時資料` : ''
+      } catch (err) {
+        if (seq !== requestSeq) return
+        connectionError.value = err.message || `無法取得 PCS-${unitIndex} 完整即時資料`
+        points.value = createEmptyPoints(config)
+      } finally {
+        if (fetchInFlight === task) fetchInFlight = null
+        if (seq === requestSeq) loading.value = false
       }
-    }
+    })()
+
+    fetchInFlight = task
+    return task
   }
 
   onMounted(() => {
-    fetchAll()
-    timer = setInterval(fetchAll, pollMs)
+    const startDelay = Math.max(0, (selectedUnitIndex.value - 1) * 350)
+    stopPolling = startPollingLoop(fetchAll, pollMs, startDelay)
   })
 
   onUnmounted(() => {
-    if (timer) clearInterval(timer)
+    if (stopPolling) stopPolling()
   })
 
   watch([siteIdRef, selectedUnitIndex], () => {
+    requestSeq += 1
+    fetchInFlight = null
     points.value = createEmptyPoints(pointsConfig.value)
     fetchAll()
   })
@@ -537,6 +687,158 @@ export function usePcsFullRealtime(siteIdRef, unitIndexRef, pollMs = 5000) {
     hasAnyValue,
     fetchAll
   }
+}
+
+export function useAtsFullRealtime(siteIdRef, deviceId = ATS_DG_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildAtsFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getAtsDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useAtsDevicesRealtime(siteIdRef, deviceIds = ATS_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getAtsDeviceLabel(deviceId),
+    ...useAtsFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useMcFullRealtime(siteIdRef, deviceId = MC_DG_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildMcFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getMcDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useMcDevicesRealtime(siteIdRef, deviceIds = MC_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getMcDeviceLabel(deviceId),
+    ...useMcFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useRcbFullRealtime(siteIdRef, deviceId = RCB_ACC_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildRcbFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getRcbDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useRcbDevicesRealtime(siteIdRef, deviceIds = RCB_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getRcbDeviceLabel(deviceId),
+    ...useRcbFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useMpmFullRealtime(siteIdRef, deviceId = METER_GW_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildMpmFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getMpmDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useMpmDevicesRealtime(siteIdRef, deviceIds = MPM_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getMpmDeviceLabel(deviceId),
+    ...useMpmFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useDgFullRealtime(siteIdRef, deviceId = DG_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildDgFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getDgDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useDgDevicesRealtime(siteIdRef, deviceIds = DG_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getDgDeviceLabel(deviceId),
+    ...useDgFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useEmsFullRealtime(siteIdRef, deviceId = EMS_GW_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildEmsFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getEmsDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useEmsDevicesRealtime(siteIdRef, deviceIds = EMS_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getEmsDeviceLabel(deviceId),
+    ...useEmsFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useFg4010FullRealtime(siteIdRef, deviceId = FG4010_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildFg4010FullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getFg4010DeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useFg4010DevicesRealtime(siteIdRef, deviceIds = FG4010_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getFg4010DeviceLabel(deviceId),
+    ...useFg4010FullRealtime(siteIdRef, deviceId, pollMs)
+  }))
+}
+
+export function useUpsFullRealtime(siteIdRef, deviceId = UPS1_DEVICE_ID, pollMs = 5000) {
+  const pointsConfig = buildUpsFullRealtimePoints(deviceId)
+  return useVppDeviceRealtime(
+    siteIdRef,
+    deviceId,
+    pointsConfig,
+    getUpsDeviceLabel(deviceId) || deviceId,
+    pollMs
+  )
+}
+
+export function useUpsDevicesRealtime(siteIdRef, deviceIds = UPS_DEVICE_IDS, pollMs = 5000) {
+  return deviceIds.map((deviceId) => ({
+    deviceId,
+    label: getUpsDeviceLabel(deviceId),
+    ...useUpsFullRealtime(siteIdRef, deviceId, pollMs)
+  }))
 }
 
 export function useEssCabinetRealtime(siteIdRef, pollMs = 5000, unitCount = ESS_CABINET_COUNT) {

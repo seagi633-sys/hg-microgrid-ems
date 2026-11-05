@@ -14,7 +14,7 @@ pip install -r requirements.txt
 複製 `.env.example` 為 `.env` 並填入資料庫連線資訊：
 
 ```
-PG_HOST=192.168.1.17
+PG_HOST=192.168.1.16
 PG_PORT=5432
 PG_USER=ems
 PG_PASSWORD=your_password
@@ -52,6 +52,21 @@ python app.py
 ```
 
 預設監聽 `http://0.0.0.0:5000`
+
+## Docker Compose（VM 架站）
+
+於專案根目錄：
+
+```bash
+cp backend/.env.example backend/.env
+# 編輯 backend/.env：PG_HOST / PG_PASSWORD 等
+
+docker compose up -d --build
+```
+
+- 網站：`http://<VM-IP>/`（nginx 提供 Vue，並代理 `/api`、`/time`）
+- API 容器僅內網給 web 使用；PostgreSQL 使用外部 DB（不在 compose 內啟動）
+- 停止：`docker compose down`
 
 ## API 端點
 
